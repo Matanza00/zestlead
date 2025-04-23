@@ -1,0 +1,339 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String             @id @default(uuid())
+  email          String             @unique
+  name           String?
+  password       String?
+  image          String?
+  emailVerified  DateTime?
+  emailNotification Boolean @default(true)
+  role           Role               @default(AGENT)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  deletedAt      DateTime?
+
+  subscriptions  Subscription[]
+  leadPurchases  LeadPurchase[]
+  loginLogs      LoginLog[]
+  twoFactorAuth  TwoFactorAuth?
+  tickets        SupportTicket[]
+  messages       SupportMessage[]
+  auditLogs      AuditLog[]
+  discountAssignments DiscountAssignment[]
+  assignedLeads  AssignedLead[]
+  transactions   Transaction[]
+
+  accounts Account[]
+  sessions Session[] 
+}
+
+  
+
+enum Role {
+  AGENT
+  ADMIN
+  SUPER_ADMIN
+}
+
+model Subscription {
+  id           String    @id @default(uuid())
+  userId       String
+  plan         SubscriptionPlan
+  status       SubscriptionStatus
+  credits      Int       @default(0)
+  startedAt    DateTime  @default(now())
+  expiresAt    DateTime
+  discountId   String?
+
+  user         User      @relation(fields: [userId], references: [id])
+  discount     Discount? @relation(fields: [discountId], references: [id])
+}
+
+
+enum SubscriptionPlan {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+model Lead {
+  id             String   @id @default(uuid())
+  leadType       LeadType
+  name           String
+  contact        String
+  email          String?
+  propertyType   String
+  beds           Float
+  baths          Float
+  desireArea     String
+  priceRange     String
+  paymentMethod  String
+  preApproved    Boolean
+  timeline       String
+  hasRealtor     Boolean
+  specialReq     String?
+  notes          String?
+  audioFileUrl   String?
+  isAvailable    Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  purchases      LeadPurchase[]
+  assignedTo     AssignedLead[]
+  tags           LeadTag[]
+
+  @@index([leadType, propertyType])
+}
+
+
+
+enum LeadType {
+  BUYER
+  SELLER
+}
+
+model LeadTag {
+  id      String  @id @default(uuid())
+  name    String
+  leadId  String
+
+  lead    Lead    @relation(fields: [leadId], references: [id])
+
+  @@index([leadId])
+}
+  
+
+model AssignedLead {
+  id         String   @id @default(uuid())
+  leadId     String
+  userId     String
+  note       String?
+  assignedAt DateTime @default(now())
+
+  lead       Lead     @relation(fields: [leadId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+
+model LeadPurchase {
+  id              String   @id @default(uuid())
+  userId          String
+  leadId          String
+  status          LeadInteractionStatus @default(NOT_CONTACTED)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+  discountUsedId  String?
+
+  user            User     @relation(fields: [userId], references: [id])
+  lead            Lead     @relation(fields: [leadId], references: [id])
+  discountUsed    DiscountAssignment? @relation("LeadDiscount", fields: [discountUsedId], references: [id])
+
+  @@unique([userId, leadId])
+}
+
+  
+
+enum LeadInteractionStatus {
+  NOT_CONTACTED
+  CONTACTED
+  NO_RESPONSE
+  CLOSED
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  adminId     String
+  action      String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  admin       User     @relation(fields: [adminId], references: [id])
+}
+  
+
+model BlogPost {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  content     String
+  excerpt     String?
+  coverImage  String?
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+}
+  
+
+model LoginLog {
+  id         String   @id @default(uuid())
+  userId     String
+  ip         String
+  userAgent  String
+  successful Boolean @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  user       User     @relation(fields: [userId], references: [id])
+}
+  
+
+model TwoFactorAuth {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  enabled   Boolean  @default(false)
+  secret    String?
+  createdAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+  
+
+model SupportTicket {
+  id        String         @id @default(uuid())
+  userId    String
+  subject   String
+  status    TicketStatus   @default(OPEN)
+  createdAt DateTime       @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  user      User           @relation(fields: [userId], references: [id])
+  messages  SupportMessage[]
+}
+  
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+model SupportMessage {
+  id        String   @id @default(uuid())
+  ticketId  String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id])
+  sender    User          @relation(fields: [senderId], references: [id])
+}
+  
+
+model Discount {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  description   String?
+  percentage    Float
+  active        Boolean   @default(true)
+  expiresAt     DateTime?
+  maxUsage      Int?
+  createdAt     DateTime  @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  stackable     Boolean   @default(false)
+
+  assignedUsers DiscountAssignment[]
+  subscriptions Subscription[]
+}
+  
+
+model DiscountAssignment {
+  id          String   @id @default(uuid())
+  discountId String
+  userId     String
+  used       Boolean   @default(false)
+  assignedAt DateTime  @default(now())
+
+  discount   Discount @relation(fields: [discountId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+  leadPurchases LeadPurchase[] @relation("LeadDiscount")
+}
+  
+
+model Transaction {
+  id          String   @id @default(uuid())
+  userId      String
+  amount      Float
+  type        TransactionType
+  status      TransactionStatus
+  reference   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  user        User     @relation(fields: [userId], references: [id])
+}
+  
+
+enum TransactionType {
+  SUBSCRIPTION
+  LEAD_PURCHASE
+  REFUND
+}
+
+enum TransactionStatus {
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
