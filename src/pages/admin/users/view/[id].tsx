@@ -1,8 +1,10 @@
 import AdminLayout from "@/layouts/AdminLayout";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import AssignLeadSection from "@/components/admin/AssignLeadSection";
 
-export default function ViewUserPage() {
+
+export default function ViewUserPage(props) {
   const router = useRouter();
   const { id } = router.query;
   const [user, setUser] = useState<any>(null);
@@ -29,6 +31,10 @@ export default function ViewUserPage() {
         <p><strong>Email Verified:</strong> {user.emailVerified ? "Yes" : "No"}</p>
         <p><strong>Role:</strong> {user.role}</p>
       </div>
+      <div className="mt-6">
+        <AssignLeadSection userId={user.id} />
+      </div>
+
     </div>
     </AdminLayout>
   );

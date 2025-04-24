@@ -5,7 +5,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { id } = req.query;
 
   if (req.method === "GET") {
-    const lead = await prisma.lead.findUnique({ where: { id: String(id) } });
+    const lead = await prisma.lead.findUnique({
+      where: { id: String(id) },
+      include: {
+        tags: true, // ✅ include tags in the response
+      },
+    });
+    
     if (!lead) return res.status(404).json({ error: "Lead not found" });
     return res.status(200).json(lead);
   }

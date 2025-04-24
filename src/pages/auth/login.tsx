@@ -1,22 +1,32 @@
 'use client';
 import { useState } from "react";
 import { useRouter } from "next/router";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 
-export default function LoginPage() {
+export default function LoginPage(props) {
   const [form, setForm] = useState({ email: "", password: "" });
   const router = useRouter();
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
+
     const res = await signIn("credentials", {
       redirect: false,
       email: form.email,
       password: form.password,
     });
 
-    if (res?.ok) router.push("/");
-    else alert("Login failed");
+    if (res?.ok) {
+      const session = await getSession(); // 👈 fetch the latest session
+
+      const role = session?.user?.role; // assuming role is in `user.role`
+
+      if (role === "ADMIN") router.push("/admin");
+      else if (role === "AGENT") router.push("/user");
+      else router.push("/"); // fallback
+    } else {
+      alert("Login failed");
+    }
   };
 
   return (

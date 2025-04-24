@@ -81,6 +81,7 @@ model Lead {
   baths          Float
   desireArea     String
   priceRange     String
+  price          Float?   // ✅ Admin-defined purchase price
   paymentMethod  String
   preApproved    Boolean
   timeline       String
