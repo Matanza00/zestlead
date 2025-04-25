@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminLayout from "@/layouts/AdminLayout";
+import StripeCheckoutButton from '@/components/StripeCheckoutButton';
+import { useSession } from "next-auth/react";
 
 export default function LeadListPage(props) {
   const [leads, setLeads] = useState([]);
@@ -8,6 +10,7 @@ export default function LeadListPage(props) {
   const [selected, setSelected] = useState<string[]>([]);
   const [tag, setTag] = useState("");
   const [bulkPrice, setBulkPrice] = useState("");
+  const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState(typeof window !== "undefined" && localStorage.getItem("zestTab") || "BUYER");
   const [filters, setFilters] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -127,6 +130,18 @@ export default function LeadListPage(props) {
             <td className="space-x-2">
               <Link href={`/admin/leads/view/${lead.id}`} className="text-blue-600 underline">View</Link>
               <Link href={`/admin/leads/edit/${lead.id}`} className="text-yellow-600 underline">Edit</Link>
+
+              {lead.isAvailable && (
+                <StripeCheckoutButton
+                lead={{
+                  id: lead.id,
+                  name: lead.name,
+                  price: lead.price,
+                  propertyType: lead.propertyType
+                }}
+                userId={session?.user?.id}
+              />
+              )}
             </td>
           </tr>
         ))}
@@ -144,6 +159,7 @@ export default function LeadListPage(props) {
         <Link href="/admin/leads/add" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
           + Add New Lead
         </Link>
+        
       </div>
 
       <details className="border rounded p-4 bg-gray-50 mb-6">

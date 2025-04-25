@@ -15,11 +15,17 @@ model User {
   image          String?
   emailVerified  DateTime?
   emailNotification Boolean @default(true)
+  inAppNotification       Boolean @default(true)
+  notifyPayment           Boolean @default(true)
+  notifySubscription      Boolean @default(true)
   role           Role               @default(AGENT)
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   deletedAt      DateTime?
 
+  stripeCustomerId String?  // ✅ Add this line
+
+  notifications   Notification[]
   subscriptions  Subscription[]
   leadPurchases  LeadPurchase[]
   loginLogs      LoginLog[]
@@ -257,7 +263,7 @@ model Discount {
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
   stackable     Boolean   @default(false)
-
+  stripePromotionId String? // 🔁 add this if syncing with Stripe
   assignedUsers DiscountAssignment[]
   subscriptions Subscription[]
 }
@@ -337,4 +343,25 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+enum NotificationType {
+  SYSTEM
+  PAYMENT
+  SUBSCRIPTION
+  LEAD
 }

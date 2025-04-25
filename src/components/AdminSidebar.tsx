@@ -7,12 +7,14 @@ import {
   FileText,
   CreditCard,
   FileEdit,
+  FileCode,
 } from "lucide-react";
 
 const menuItems = [
   { label: "Dashboard", path: "/admin", icon: <Home size={18} /> },
   { label: "User Management", path: "/admin/users", icon: <Users size={18} /> },
   { label: "Lead Management", path: "/admin/leads", icon: <FileText size={18} /> },
+  { label: "Referrals Management", path: "/admin/referrals", icon: <FileCode size={18} /> },
   { label: "Transaction Management", path: "/admin/transactions", icon: <CreditCard size={18} /> },
   { label: "Content Management", path: "/admin/content", icon: <FileEdit size={18} /> },
 ];

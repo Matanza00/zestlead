@@ -2,12 +2,13 @@ import AdminLayout from "@/layouts/AdminLayout";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import AssignLeadSection from "@/components/admin/AssignLeadSection";
+import DiscountAssignmentSection from "@/components/admin/DiscountAssignmentSection";
 
 
 export default function ViewUserPage(props) {
   const router = useRouter();
   const { id } = router.query;
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(null); 
 
   useEffect(() => {
     if (id) {
@@ -34,6 +35,8 @@ export default function ViewUserPage(props) {
       <div className="mt-6">
         <AssignLeadSection userId={user.id} />
       </div>
+      <DiscountAssignmentSection userId={user.id} />
+
 
     </div>
     </AdminLayout>

@@ -18,6 +18,6 @@
       "@/*": ["*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "prisma/seed.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "prisma/seed.js", "script/backfillStripeCustomers.js"],
   "exclude": ["node_modules"]
 }
