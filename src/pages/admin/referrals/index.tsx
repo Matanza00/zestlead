@@ -114,6 +114,7 @@ export default function ReferralAdminPage(props) {
                     <th className="p-2 text-left">Discount %</th>
                     <th className="p-2 text-left">Expires</th>
                     <th className="p-2 text-left">Used / Assigned</th>
+                    <th className="p-2 text-left">Usage</th>
                     <th className="p-2 text-left">Stackable</th>
                 </tr>
             </thead>
@@ -129,6 +130,7 @@ export default function ReferralAdminPage(props) {
                     {" / "}
                     {d.assignedUsers?.length || 0}
                     </td>
+                    <td className="p-2">{d.maxUsage}</td>
                 <td className="p-2">{d.stackable ? "Yes" : "No"}</td>
                 </tr>
             ))}

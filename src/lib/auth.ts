@@ -106,7 +106,16 @@ export const authOptions = {
   pages: {
     signIn: "/auth/login",
   },
-  session: {
-    strategy: "jwt",
+  session: { strategy: "jwt" },
+  cookies: {
+    sessionToken: {
+      name: "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",       // ← ensure it's sent on /api/cart calls
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
   },
 };

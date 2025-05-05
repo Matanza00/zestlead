@@ -2,6 +2,7 @@
 import { signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import NavbarNotificationDropdown from '@/components/NavbarNotificationDropdown';
+import NavbarCartDropdown         from '@/components/NavbarCartDropdown';
 
 export default function Navbar() {
   const { data: session } = useSession();
@@ -22,6 +23,7 @@ export default function Navbar() {
             />
           )}
           <NavbarNotificationDropdown />
+          <NavbarCartDropdown />
           <div className="text-sm">
             <p className="font-semibold">{session.user.name}</p>
             <p className="text-gray-500 text-xs">{session.user.email}</p>

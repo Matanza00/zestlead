@@ -33,7 +33,8 @@
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.5.2",
     "speakeasy": "^2.0.0",
-    "stripe": "^18.0.0"
+    "stripe": "^18.0.0",
+    "swr": "^2.3.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

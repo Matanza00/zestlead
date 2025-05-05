@@ -1,9 +1,9 @@
+// pages/user/leads.tsx
 'use client';
 import UserLayout from '@/layouts/UserLayout';
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import StripeCheckoutButton from '@/components/StripeCheckoutButton';
-
+import toast from 'react-hot-toast';
 
 type Lead = {
   id: string;
@@ -16,72 +16,86 @@ type Lead = {
   createdAt: string;
 };
 
+type CartItem = {
+  id: string;
+  lead: {
+    id: string;
+    name: string;
+    propertyType: string;
+    price: number;
+  };
+};
+
 export default function UserLeadsPage(props) {
   const { data: session } = useSession();
+  const userId = session?.user?.id as string;
+
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [referralCode, setReferralCode] = useState('');
-  const [isPurchasing, setIsPurchasing] = useState(false);
   const [activeTab, setActiveTab] = useState<'BUYER' | 'SELLER'>('BUYER');
 
+  // fetch leads
   useEffect(() => {
-    const fetchLeads = async () => {
-      try {
-        const res = await fetch('/api/user/leads');
-        const data = await res.json();
-        setLeads(data);
-      } catch (err) {
-        console.error('Failed to load leads:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchLeads();
+    fetch('/api/user/leads')
+      .then((r) => r.json())
+      .then(setLeads)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
-  const handlePurchase = async () => {
-    if (!selectedLead || !session?.user?.id) return;
-    setIsPurchasing(true);
+  // fetch existing cart items
+  useEffect(() => {
+    fetch('/api/cart', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data: CartItem[]) => setCartItems(data))
+      .catch(console.error);
+  }, []);
 
+  const addToCart = async (leadId: string) => {
     try {
-      const res = await fetch('/api/stripe/create-checkout-session', {
+      const res = await fetch('/api/cart', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          leadId: selectedLead.id,
-          userId: session.user.id,
-          referralCode: referralCode || null,
-        }),
+        body: JSON.stringify({ leadId }),
       });
-
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert('Failed to create checkout session');
-      }
+      const newItem: CartItem = await res.json();
+      setCartItems((prev) => [...prev, newItem]);
+      toast.success('Added to cart');
+      window.dispatchEvent(new Event('cart-updated'));
     } catch (err) {
       console.error(err);
-      alert('Something went wrong');
-    } finally {
-      setIsPurchasing(false);
+      toast.error('Failed to add to cart');
     }
   };
 
-  const filteredLeads = leads.filter((lead) => lead.leadType === activeTab);
+  const removeFromCart = async (itemId: string) => {
+    try {
+      const res = await fetch(`/api/cart/${itemId}`, { method: 'DELETE' , credentials: 'include', });
+      if (!res.ok) throw new Error('Delete failed');
+      setCartItems((prev) => prev.filter((ci) => ci.id !== itemId));
+      toast.success('Removed from cart');
+      window.dispatchEvent(new Event('cart-updated'));
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to remove from cart');
+    }
+  };
+
+  const filtered = leads.filter((l) => l.leadType === activeTab);
 
   return (
     <UserLayout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-800">Leads Marketplace</h1>
+        <h1 className="text-2xl font-bold">Leads Marketplace</h1>
 
         {/* Tabs */}
         <div className="flex gap-4 border-b mb-2">
-          {['BUYER', 'SELLER'].map((tab) => (
+          {(['BUYER', 'SELLER'] as const).map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab as 'BUYER' | 'SELLER')}
+              onClick={() => setActiveTab(tab)}
               className={`px-4 py-2 text-sm font-medium border-b-2 ${
                 activeTab === tab
                   ? 'border-blue-600 text-blue-600'
@@ -95,9 +109,9 @@ export default function UserLeadsPage(props) {
 
         {/* Table */}
         {loading ? (
-          <p className="text-gray-600">Loading leads...</p>
-        ) : filteredLeads.length === 0 ? (
-          <p className="text-gray-600">No leads found.</p>
+          <p>Loading leads…</p>
+        ) : filtered.length === 0 ? (
+          <p>No leads found.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border rounded shadow-sm">
@@ -108,80 +122,49 @@ export default function UserLeadsPage(props) {
                   <th className="p-3">Type</th>
                   <th className="p-3">Price Range</th>
                   <th className="p-3">Admin Price</th>
-                  <th className="p-3 text-center">Actions</th>
+                  <th className="p-3 text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredLeads.map((lead) => (
-                  <tr key={lead.id} className="border-t text-sm">
-                    <td className="p-3">{lead.name}</td>
-                    <td className="p-3">{lead.desireArea}</td>
-                    <td className="p-3">{lead.propertyType}</td>
-                    <td className="p-3">{lead.priceRange}</td>
-                    <td className="p-3">{lead.price ? `PKR ${lead.price.toLocaleString()}` : '-'}</td>
-                    <td className="p-3 text-center">
-                    <StripeCheckoutButton
-                        lead={{
-                        id: lead.id,
-                        name: lead.name,
-                        price: lead.price || 0,
-                        propertyType: lead.propertyType,
-                        }}
-                        userId={session?.user?.id}
-                    />
-                    </td>
+                {filtered.map((lead) => {
+                  // find if this lead is in cart
+                  const cartItem = cartItems.find((ci) => ci.lead.id === lead.id);
+                  const inCart = Boolean(cartItem);
 
-                  </tr>
-                ))}
+                  return (
+                    <tr key={lead.id} className="border-t text-sm">
+                      <td className="p-3">{lead.name}</td>
+                      <td className="p-3">{lead.desireArea}</td>
+                      <td className="p-3">{lead.propertyType}</td>
+                      <td className="p-3">{lead.priceRange}</td>
+                      <td className="p-3">
+                        {lead.price ? `PKR ${lead.price.toLocaleString()}` : '-'}
+                      </td>
+                      <td className="p-3 text-center">
+                        {inCart ? (
+                          <button
+                            onClick={() => removeFromCart(cartItem!.id)}
+                            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                          >
+                            Remove from Cart
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => addToCart(lead.id)}
+                            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                          >
+                            Add to Cart
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
-
-      {/* Purchase Modal */}
-      {selectedLead && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg relative">
-            <button
-              onClick={() => setSelectedLead(null)}
-              className="absolute top-2 right-3 text-gray-400 hover:text-black"
-            >
-              ✕
-            </button>
-
-            <h2 className="text-xl font-semibold mb-3">Lead Details</h2>
-            <div className="space-y-1 text-sm text-gray-700">
-              <p><strong>Name:</strong> {selectedLead.name}</p>
-              <p><strong>Area:</strong> {selectedLead.desireArea}</p>
-              <p><strong>Type:</strong> {selectedLead.propertyType}</p>
-              <p><strong>Lead Type:</strong> {selectedLead.leadType}</p>
-              <p><strong>Price Range:</strong> {selectedLead.priceRange}</p>
-              {selectedLead.price && (
-                <p><strong>Admin Price:</strong> PKR {selectedLead.price.toLocaleString()}</p>
-              )}
-            </div>
-
-            <div className="mt-4">
-              <label className="block text-sm text-gray-600 mb-1">Referral Code (optional)</label>
-              <input
-                value={referralCode}
-                onChange={(e) => setReferralCode(e.target.value)}
-                className="w-full border px-3 py-2 rounded text-sm"
-                placeholder="Enter referral code if any"
-              />
-            </div>
-
-            <button
-              onClick={handlePurchase}
-              disabled={isPurchasing}
-              className="mt-5 bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 w-full"
-            >
-              {isPurchasing ? 'Redirecting to Checkout...' : 'Buy Lead via Stripe'}
-            </button>
-          </div>
-        </div>
-      )}
     </UserLayout>
   );
 }

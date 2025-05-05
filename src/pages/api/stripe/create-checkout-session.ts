@@ -1,100 +1,95 @@
 // pages/api/stripe/create-checkout-session.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import Stripe from 'stripe';
-import { PrismaClient } from '@prisma/client';
+import {prisma} from '@/lib/prisma';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
 });
-const prisma = new PrismaClient();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).end();
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', ['POST']);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
+  }
 
-  const { leadId, userId, referralCode } = req.body;
+  const { leadId, leadIds, userId, referralCode } = req.body as {
+    leadId?: string;
+    leadIds?: string[];
+    userId: string;
+    referralCode?: string;
+  };
+
+  // Normalize to array
+  const ids = leadIds ?? (leadId ? [leadId] : []);
+  if (ids.length === 0) {
+    return res.status(400).json({ error: 'No leads provided.' });
+  }
 
   try {
-    // 🟡 1. Fetch lead and price
-    const lead = await prisma.lead.findUnique({ where: { id: leadId } });
-    if (!lead || !lead.price) return res.status(400).json({ error: 'Invalid lead or missing price' });
+    // 1️⃣ Fetch all leads
+    const leads = await prisma.lead.findMany({ where: { id: { in: ids } } });
+    if (leads.length !== ids.length) {
+      return res.status(400).json({ error: 'Some leads not found.' });
+    }
 
-    let price = lead.price;
-    let discountUsedId: string | null = null;
-    let stripePromotionId: string | undefined = undefined;
-
-    // 🟢 2. If referral code is provided
+    // 2️⃣ Lookup discount assignments
+    let discountPercent = 0;
+    let assignmentIds: string[] = [];
     if (referralCode) {
       const discount = await prisma.discount.findFirst({
         where: {
           code: referralCode.toUpperCase(),
           active: true,
-          OR: [
-            { expiresAt: null },
-            { expiresAt: { gt: new Date() } }
-          ],
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
-        include: {
-          assignedUsers: {
-            where: { userId },
-          },
-        },
+        include: { assignedUsers: { where: { userId, used: false } } },
       });
-    
-      console.log("🔍 Found discount:", discount);
-    
-      const assignment = discount?.assignedUsers?.[0];
-      console.log("🎯 Assignment found:", assignment);
-    
-      if (discount && assignment && !assignment.used && discount.stripePromotionId) {
-        discountUsedId = assignment.id;
-        stripePromotionId = discount.stripePromotionId;
-        console.log("✅ Stripe promo applied:", stripePromotionId);
+      if (discount) {
+        discountPercent = discount.percentage;
+        assignmentIds = discount.assignedUsers
+          .slice(0, leads.length)
+          .map((a) => a.id);
       }
     }
-    
-    
-    
 
-    console.log("🧪 Using promotion:", stripePromotionId);
-    console.log("✅ Applying Stripe Promotion:", stripePromotionId);
+    // 3️⃣ Build line_items with per-item discount
+    const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = leads.map((lead, idx) => {
+      const baseAmount = Math.round((lead.price ?? 0) * 100);
+      const finalAmount = idx < assignmentIds.length
+        ? Math.round(baseAmount * (1 - discountPercent / 100))
+        : baseAmount;
 
+      return {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: lead.name,
+            description: lead.propertyType,
+          },
+          unit_amount: finalAmount,
+        },
+        quantity: 1,
+      };
+    });
 
-    // 🧾 3. Create Stripe Checkout Session
+    // 4️⃣ Create Stripe Checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: 'Lead Purchase',
-            },
-            unit_amount: Math.round(price * 100),
-          },
-          quantity: 1,
-        },
-      ],
-      discounts: stripePromotionId
-      ? [
-          {
-            promotion_code: stripePromotionId,
-          },
-        ]
-      : undefined,
-
+      line_items,
       metadata: {
-        leadId,
         userId,
-        discountUsedId: discountUsedId || '',
+        leadIds: JSON.stringify(ids),
+        assignmentIds: JSON.stringify(assignmentIds),
       },
       success_url: `${req.headers.origin}/stripe/payment-success`,
       cancel_url: `${req.headers.origin}/stripe/payment-cancelled`,
     });
 
-    res.status(200).json({ id: session.id });
+    return res.status(200).json({ id: session.id });
   } catch (err: any) {
-    console.error('Checkout Error:', err);
-    res.status(500).json({ error: err.message });
+    console.error('🛑 Checkout Error:', err);
+    return res.status(500).json({ error: err.message });
   }
 }
