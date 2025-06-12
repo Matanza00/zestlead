@@ -4,7 +4,7 @@ import "@/styles/globals.css";
 import { Toaster } from 'react-hot-toast';
 <Toaster position="top-right" />
 
-export default function App({ Component, pageProps }: AppProps) {
+export default function App({ Component, pageProps }) {
   return (
     <SessionProvider
       session={pageProps.session}

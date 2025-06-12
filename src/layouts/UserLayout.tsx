@@ -1,41 +1,24 @@
 // src/layouts/UserLayout.tsx
-'use client';
-import UserNavbar from '@/components/UserNavbar';
-import UserSidebar from '@/components/UserSidebar';
-import { ReactNode, useEffect, useState } from 'react';
+'use client'
+import UserSidebar from '@/components/UserSidebar'
+import Navbar from '@/components/Navbar'
 
-export default function UserLayout({ children }: { children: ReactNode }) {
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => setIsClient(true), []);
-
-  if (!isClient) return null;
-
+export default function UserLayout({ children }: { children: React.ReactNode }) {
   return (
-    // <div className="flex h-screen overflow-hidden">
-    //   <aside className="hidden md:block">
-    //     <UserSidebar />
-    //   </aside>
-    //   <main className="flex-1 overflow-y-auto bg-gray-50 p-4">
-    //     {children}
-    //   </main>
-    // </div>
-
-
-    <div className="flex min-h-screen bg-gray-100">
-      {/* Sidebar */}
+    <>
+      {/* fixed sidebar */}
       <UserSidebar />
 
-      {/* Main content area */}
-      <div className="flex flex-col flex-1">
-        {/* Top Navbar (shared for now) */}
-        <UserNavbar />
+      {/* content wrapper: margin-left on md+ to clear sidebar */}
+      <div className="ml-0 md:ml-64">
+        {/* fixed navbar: height 64px, offset by same sidebar margin */}
+        <Navbar />
 
-        {/* Page content */}
-        <main className="p-6 flex-1 overflow-y-auto">
+        {/* main content: pushed down by navbar height */}
+        <main className="mt-16">
           {children}
         </main>
       </div>
-    </div>
-  );
+    </>
+  )
 }
