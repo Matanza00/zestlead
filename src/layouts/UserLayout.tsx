@@ -1,7 +1,7 @@
 // src/layouts/UserLayout.tsx
 'use client'
 import UserSidebar from '@/components/UserSidebar'
-import Navbar from '@/components/Navbar'
+import Navbar from '@/components/UserNavbar'
 
 export default function UserLayout({ children }: { children: React.ReactNode }) {
   return (
