@@ -1,29 +1,114 @@
+/* This CSS file is structured to work with modern Tailwind CSS setups
+   by using the @theme directive to map your custom variables.
+*/
+
 @import "tailwindcss";
+@import "tw-animate-css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* 1. Define all your custom theme properties as CSS variables in :root. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* General Palette */
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+
+  /* --- Primary Color Family (Updated to original website palette) --- */
+  --primary: #285B19;          /* Deep, dark green */
+  --primary-light: #BCF1A5;      /* Vibrant light green */
+  --primary-dark: #285B19;         /* Using the base dark green as the darkest shade */
+  --primary-foreground: #ffffff;  /* White text for high contrast */
+
+  /* Secondary & Muted Palette */
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --neutral: #1E2939; /* Added neutral color */
+
+  /* Accent & Utility Colors (Updated) */
+  --accent: #BCF1A5;              /* Using the light green for accents */
+  --accent-foreground: #285B19;    /* Dark green text for high contrast on accents */
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #BCF1A5;                /* Ring color matches the new light green accent */
+  --plan-color: #a855f7;          /* Purple for plan highlights (like Tailwind's purple-500) */
+  --radius: 0.5rem;
+
+  /* --- Icon Gradient Specific Vars --- */
+  --icon-gradient-start: #BCF1A5;
+  --icon-gradient-end: #285B19;
+
+  /* --- Sidebar Specific Vars (Updated) --- */
+  --sidebar-background: #ffffff;
+  --sidebar-foreground: #475569;
+  --sidebar-active-background: var(--accent); /* Using the new light green accent */
+  --sidebar-active-foreground: var(--primary); /* Using the new primary green for active text/icon */
+  --sidebar-accent: #f1f5f9;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #e2e8f0;
 }
 
+/* 2. Use the @theme directive to map your variables to Tailwind's theme. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-light: var(--primary-light);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-neutral: var(--neutral); /* Mapped neutral color */
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-plan: var(--plan-color);
+
+  /* Sidebar Mappings */
+  --color-sidebar: var(--sidebar-background);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-active-background: var(--sidebar-active-background);
+  --color-sidebar-active-foreground: var(--sidebar-active-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+
+  /* Radius Mappings */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* 3. Apply your base styles using the custom variables. */
+@layer base {
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 14px;
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  * {
+    @apply border-border;
+  }
 }

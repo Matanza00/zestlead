@@ -13,7 +13,7 @@ export default function UserDashboard(props) {
         style={{
           background: 'linear-gradient(135deg, var(--tw-gradient-stops))',
         }}
-        className="bg-gradient-to-br from-bgStart to-bgEnd"
+        // className="bg-gradient-to-br from-bgStart to-bgEnd"
       >
         {/* Welcome */}
         <h1 className="text-4xl font-heading text-surface">
