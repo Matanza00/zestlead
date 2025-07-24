@@ -1,5 +1,5 @@
 'use client';
-import UserLayout from '@/layouts/UserLayout';
+import UserLayout from "@/components/CombinedNavbar"
 import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';

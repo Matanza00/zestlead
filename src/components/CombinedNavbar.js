@@ -25,106 +25,203 @@ const Icons = {
 
 // --- NavLink Component --- (Updated to use CSS theme variables)
 const NavLink = ({ href, children, icon: Icon }) => {
-    const pathname = usePathname();
-    const isActive = pathname === href;
+  const pathname = usePathname();
+// true whenever we’re on any /user/leads/* page
+  
+  const isActive = pathname === href;
 
-    return (
-        <Link href={href} passHref>
-            <span className={`flex items-center py-2 px-3 text-m rounded-md transition-colors  
-                ${isActive
-                    ? 'bg-sidebar-active-background/40 text-sidebar-active-foreground [&>svg]:text-sidebar-active-foreground'
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-normal'
-                }`}>
-                <Icon />
-                {children}
-            </span>
-        </Link>
-    );
+  return (
+    <Link href={href} passHref>
+      <span
+        className={`flex items-center gap-2 py-2 px-3 text-m rounded-md transition-colors  
+          ${
+            isActive
+              ? 'bg-sidebar-active-background/40 text-sidebar-active-foreground [&>svg]:text-sidebar-active-foreground'
+              : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-normal'
+          }`}
+      >
+        <Icon />
+        {children}
+      </span>
+    </Link>
+  );
 };
 
-// --- Main Layout Component ---
 export default function CombinedNavSidebar({ children }) {
-    const [isSidebarOpen, setSidebarOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const pathname = usePathname();
+  const pathname = usePathname();
+  const isLeadsRoute = 
+  pathname.startsWith('/user/leads') || 
+  pathname === '/user/my-leads'
 
-    const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
+  // Safe SSR initial state:
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [leadsOpen, setLeadsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const debounceTimeoutRef = useRef(null);
 
-    useEffect(() => {
-        if (isSidebarOpen) setSidebarOpen(false);
-    }, [pathname]);
+  // Hydrate from localStorage on client only
+  useEffect(() => {
+    const storedSidebar = window.localStorage.getItem('sidebar-open');
+    if (storedSidebar !== null) {
+      setSidebarOpen(storedSidebar === 'true');
+    }
+    const storedLeads = window.localStorage.getItem('sidebar-leads-open');
+    if (storedLeads !== null) {
+      setLeadsOpen(storedLeads === 'true');
+    }
+  }, []);
 
-    // Debounce logic remains the same
-    const debounceTimeoutRef = useRef(null);
-    const handleSearchChange = useCallback((e) => {
-        const value = e.target.value;
-        setSearchTerm(value);
-        if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-        debounceTimeoutRef.current = setTimeout(() => {
-            console.log('Search triggered with:', value);
-        }, 300);
-    }, []);
-    useEffect(() => {
-        return () => {
-            if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-        };
-    }, []);
+  // Close sidebar on route change
+  useEffect(() => {
+    if (isSidebarOpen) setSidebarOpen(false);
+  }, [pathname, isSidebarOpen]);
 
-    return (
-        <div className="flex w-full min-h-screen bg-background p-4 lg:p-2">
+  const toggleSidebar = () => {
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      window.localStorage.setItem('sidebar-open', String(next));
+      return next;
+    });
+  };
 
-            {/* --- SIDEBAR --- (Updated with 16px radius and theme colors) */}
-            <aside id="sidebar" className={`
-                fixed top-4 left-4 z-40 w-64 h-[calc(100vh-2rem)]
-                bg-card rounded-[16px] shadow-sm
-                flex flex-col justify-between transition-transform
-                lg:static lg:w-55 lg:h-[calc(100vh-3rem)] lg:shrink-0 lg:mr-2
-                lg:translate-x-0
-                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-            `}>
-                <div className="lg:sticky px-6 py-2">
-                    <div className="flex items-center h-16 mb-4">
-                        {/* Updated: Gradient color for the logo */}
-                        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-light to-primary-dark bg-clip-text text-transparent">
-                            ZestLeads
-                        </h1>
-                    </div>
+  const toggleLeads = () => {
+    setLeadsOpen((prev) => {
+      const next = !prev;
+      window.localStorage.setItem('sidebar-leads-open', String(next));
+      return next;
+    });
+  };
 
-                    <nav className="space-y-1">
-                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Overview</h3>
-                        <NavLink href="/user/iinn" icon={Icons.Dashboard}>Dashboard</NavLink>
-                        <NavLink href="/leads" icon={Icons.Leads}>Leads</NavLink>
-                    </nav>
+  const handleSearchChange = useCallback((e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    debounceTimeoutRef.current = setTimeout(() => {
+      console.log('Search triggered with:', value);
+    }, 300);
+  }, []);
 
-                    {/* Other nav sections remain the same */}
-                    <nav className="space-y-1 mt-6">
-                         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Profile</h3>
-                         <NavLink href="/profile" icon={Icons.Profile}>Profile</NavLink>
-                         <NavLink href="/subscription" icon={Icons.Subscription}>Subscription</NavLink>
-                         <NavLink href="/wallet" icon={Icons.Wallet}>Wallet</NavLink>
-                         <NavLink href="/activity" icon={Icons.Activity}>Activity</NavLink>
-                         <NavLink href="/settings" icon={Icons.Settings}>Settings</NavLink>
-                    </nav>
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    };
+  }, []);
 
-                    <nav className="space-y-1 mt-6">
-                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Support</h3>
-                        <NavLink href="/help" icon={Icons.Help}>Help & FAQ</NavLink>
-                        <NavLink href="/about" icon={Icons.About}>About</NavLink>
-                    </nav>
-                </div>
+  return (
+    <div className="flex w-full min-h-screen bg-background p-4 lg:p-2">
+      {/* SIDEBAR */}
+      <aside
+        id="sidebar"
+        className={`
+          fixed top-4 left-4 z-40 w-64 h-[calc(100vh-2rem)]
+          bg-card rounded-[16px] shadow-sm
+          flex flex-col justify-between transition-transform
+          lg:static lg:w-55 lg:h-[calc(100vh-3rem)] lg:shrink-0 lg:mr-2 lg:translate-x-0
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+      >
+        <div className="lg:sticky px-6 py-2">
+          <div className="flex items-center h-16 mb-4">
+            <h1 className="
+            w-[101px] h-[25px]
+            [font-family:'Plus\ Jakarta\ Sans'] font-semibold text-[20px] leading-[25px]
+            bg-[radial-gradient(135.64%_109.6%_at_-3.96%_130%,#82E15A_0%,#0A7894_100%)]
+            bg-clip-text [-webkit-background-clip:text]
+            text-transparent [-webkit-text-fill-color:transparent]
+          ">
+              ZestLeads
+            </h1>
+          </div>
 
-                <div className="p-6">
-                     <div className="bg-plan rounded-lg p-4 text-center text-primary-foreground relative overflow-hidden">
-                        <div className="relative z-10">
-                            <h3 className="font-semibold text-sm mb-1">Upgrade your plan now</h3>
-                            <p className="text-xs opacity-90 mb-4">Get unlimited leads and get notified first for every hot lead.</p>
-                            <button className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium h-9 rounded-md px-3 w-full bg-white text-plan hover:bg-white/90">
-                                Buy Now
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </aside>
+          {/* Overview */}
+          <nav className="space-y-1">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">
+              Overview
+            </h3>
+
+            <NavLink href="/user/dashboard" icon={Icons.Dashboard}>
+              Dashboard
+            </NavLink>
+
+            {/* Leads parent toggle */}
+            <button
+        onClick={toggleLeads}
+        className={`flex items-center gap-2 py-2 px-3 rounded-md transition-colors  
+            ${
+            isLeadsRoute
+                ? 'bg-sidebar-active-background/40 text-sidebar-active-foreground [&>svg]:text-sidebar-active-foreground'
+                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-normal'
+            }`}
+        >
+        <Icons.Leads />
+        <span>Leads</span>
+        </button>
+
+            {/* Leads submenu */}
+            <div
+              className={`ml-6 mt-1 space-y-1 overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out
+                ${leadsOpen ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}
+            >
+              <NavLink href="/user/leads" icon={Icons.Cart} >
+                <span className='px-3'>Buy</span>
+              </NavLink>
+              <NavLink href="/user/my-leads" icon={Icons.Profile}>
+                Owned
+              </NavLink>
+            </div>
+          </nav>
+
+          {/* Profile */}
+          <nav className="space-y-1 mt-6">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">
+              Profile
+            </h3>
+            <NavLink href="/user/account" icon={Icons.Profile}>
+              Profile
+            </NavLink>
+            <NavLink href="/subscription" icon={Icons.Subscription}>
+              Subscription
+            </NavLink>
+            <NavLink href="/wallet" icon={Icons.Wallet}>
+              Wallet
+            </NavLink>
+            <NavLink href="/activity" icon={Icons.Activity}>
+              Activity
+            </NavLink>
+            <NavLink href="/settings" icon={Icons.Settings}>
+              Settings
+            </NavLink>
+          </nav>
+
+          {/* Support */}
+          <nav className="space-y-1 mt-6">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">
+              Support
+            </h3>
+            <NavLink href="/help" icon={Icons.Help}>
+              Help & FAQ
+            </NavLink>
+            <NavLink href="/about" icon={Icons.About}>
+              About
+            </NavLink>
+          </nav>
+        </div>
+
+        {/* Promo at bottom */}
+        <div className="p-6">
+          <div className="bg-plan rounded-lg p-4 text-center text-primary-foreground relative overflow-hidden">
+            <div className="relative z-10">
+              <h3 className="font-semibold text-sm mb-1">Upgrade your plan now</h3>
+              <p className="text-xs opacity-90 mb-4">
+                Get unlimited leads and get notified first for every hot lead.
+              </p>
+              <button className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium h-9 rounded-md px-3 w-full bg-white text-plan hover:bg-white/90">
+                Buy Now
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
             <div id="sidebar-backdrop" onClick={toggleSidebar} className={`fixed inset-0 bg-black/60 z-30 lg:hidden ${isSidebarOpen ? 'block' : 'hidden'}`}></div>
 
             {/* --- MAIN CONTENT WRAPPER --- (Updated with 16px radius and theme colors) */}

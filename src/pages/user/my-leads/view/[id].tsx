@@ -1,10 +1,10 @@
 'use client';
-import UserLayout from '@/layouts/UserLayout';
+import UserLayout from "@/components/CombinedNavbar"
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import moment from 'moment';
 
-export default function LeadViewPage() {
+export default function LeadViewPage(props) {
   const router = useRouter();
   const { id } = router.query;
   const [lead, setLead] = useState<any>(null);

@@ -1,5 +1,5 @@
 'use client';
-import UserLayout from '@/layouts/UserLayout';
+import UserLayout from "@/components/CombinedNavbar"
 import { useEffect, useState } from 'react';
 
 export default function NotificationPage(props) {
