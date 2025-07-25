@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import AdminLayout from "@/layouts/AdminLayout";
+import AdminLayout from "@/components/layout/AdminLayout";
 
 export default function ViewLeadPage(props) {
   const router = useRouter();

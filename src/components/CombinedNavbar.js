@@ -222,7 +222,7 @@ export default function CombinedNavSidebar({ children }) {
           </div>
         </div>
       </aside>
-            <div id="sidebar-backdrop" onClick={toggleSidebar} className={`fixed inset-0 bg-black/60 z-30 lg:hidden ${isSidebarOpen ? 'block' : 'hidden'}`}></div>
+      <div id="sidebar-backdrop" onClick={toggleSidebar} className={`fixed inset-0 bg-black/60 z-30 lg:hidden ${isSidebarOpen ? 'block' : 'hidden'}`}></div>
 
             {/* --- MAIN CONTENT WRAPPER --- (Updated with 16px radius and theme colors) */}
             <div className="
@@ -278,6 +278,6 @@ export default function CombinedNavSidebar({ children }) {
                     {children}
                 </main>
             </div>
-        </div>
+      </div>
     );
 }

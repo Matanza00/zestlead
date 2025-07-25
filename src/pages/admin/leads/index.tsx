@@ -1,199 +1,389 @@
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import AdminLayout from "@/layouts/AdminLayout";
-import StripeCheckoutButton from '@/components/StripeCheckoutButton';
-import { useSession } from "next-auth/react";
+// pages/admin/leads/index.tsx
+'use client'
+
+import { useEffect, useState, useRef } from 'react'
+import Link from 'next/link'
+import AdminLayout from '@/components/layout/AdminLayout'
+import StripeCheckoutButton from '@/components/StripeCheckoutButton'
+import { useSession } from 'next-auth/react'
+import { Search as SearchIcon, Tag, DollarSign, UserPlus } from 'lucide-react'
+import { Button } from '@/components/ui2/button'
+
+type Lead = {
+  id: string
+  name: string
+  contact: string
+  email?: string
+  leadType: 'BUYER' | 'SELLER'
+  propertyType: string
+  isAvailable: boolean
+  price?: number
+  tags: { id: string; name: string }[]
+}
 
 export default function LeadListPage(props) {
-  const [leads, setLeads] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [tag, setTag] = useState("");
-  const [bulkPrice, setBulkPrice] = useState("");
-  const { data: session } = useSession();
-  const [activeTab, setActiveTab] = useState(typeof window !== "undefined" && localStorage.getItem("zestTab") || "BUYER");
-  const [filters, setFilters] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('zestLeadFilters');
-      return saved ? JSON.parse(saved) : {
-        query: "",
-        propertyType: "",
-        tag: "",
-        status: "",
-        minBeds: "",
-        minBaths: "",
-        minPrice: "",
-        maxPrice: ""
-      };
-    }
-    return {
-      query: "",
-      propertyType: "",
-      tag: "",
-      status: "",
-      minBeds: "",
-      minBaths: "",
-      minPrice: "",
-      maxPrice: ""
-    };
-  });
+  const { data: session } = useSession()
+  const [leads, setLeads] = useState<Lead[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState<string[]>([])
+  const [bulkTag, setBulkTag] = useState('')
+  const [bulkPrice, setBulkPrice] = useState('')
+  const [activeTab, setActiveTab] = useState<'BUYER'|'SELLER'>(
+    (typeof window !== 'undefined' && (localStorage.getItem('zestTab') as any)) || 'BUYER'
+  )
+  const [filters, setFilters] = useState({
+    query: '',
+    propertyType: '',
+    status: '',
+  })
+  const debounceRef = useRef<NodeJS.Timeout|null>(null)
 
+  // Fetch leads whenever filters change
   useEffect(() => {
-    const queryParams = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) queryParams.append(key, value);
-    });
-  
-    fetch(`/api/admin/leads?${queryParams.toString()}`)
-      .then((res) => res.json())
-      .then(setLeads)
-      .finally(() => setLoading(false));
-  }, [filters]);
-  
+    setLoading(true)
+    const q = new URLSearchParams()
+    Object.entries(filters).forEach(([k,v]) => v && q.append(k,v))
+    fetch(`/api/admin/leads?${q.toString()}`)
+      .then(r => r.json())
+      .then((data: Lead[]) => setLeads(data))
+      .finally(() => setLoading(false))
+  }, [filters])
 
-  const handleToggle = (id: string) => {
-    setSelected((prev) => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  };
+  // Handlers
+  const toggleSelect = (id: string) =>
+    setSelected(s => s.includes(id) ? s.filter(x=>x!==id) : [...s,id])
 
   const applyBulkTag = async () => {
-    if (!tag.trim() || selected.length === 0) return;
-    await fetch("/api/admin/leads/tag-bulk", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ leadIds: selected, tag: tag.trim() })
-    });
-    alert("Tag applied to selected leads.");
-    setSelected([]);
-    setTag("");
-    location.reload();
-  };
+    if (!bulkTag.trim() || !selected.length) return
+    await fetch('/api/admin/leads/tag-bulk', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ leadIds:selected, tag:bulkTag.trim() })
+    })
+    setSelected([]); setBulkTag('')
+    // re-fetch
+    setFilters(f => ({ ...f })) 
+  }
 
-  const removeTag = async (tagId: string, leadId: string) => {
-    await fetch(`/api/admin/leads/${leadId}/tags/${tagId}`, { method: "DELETE" });
-    setLeads(prev =>
-      prev.map(lead =>
-        lead.id === leadId ? {
-          ...lead,
-          tags: lead.tags.filter((tag: any) => tag.id !== tagId)
-        } : lead
-      )
-    );
-  };
+  const applyBulkPrice = async () => {
+    const p = parseFloat(bulkPrice)
+    if (isNaN(p) || !selected.length) return
+    await fetch('/api/admin/leads/price-bulk', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ leadIds:selected, price:p })
+    })
+    setSelected([]); setBulkPrice('')
+    setFilters(f => ({ ...f }))
+  }
 
-  const renderTable = (leadsToRender: any[]) => (
-    <table className="w-full table-auto border">
-      <thead>
-        <tr className="bg-gray-100 text-left">
-          <th className="p-2"></th>
-          <th className="p-2">Name</th>
-          <th>Contact</th>
-          <th>Email</th>
-          <th>Type</th>
-          <th>Property</th>
-          <th>Status</th>
-          <th>Price</th>
-          <th>Tags</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {leadsToRender.map((lead: any) => (
-          <tr key={lead.id} className="border-t">
-            <td className="p-2">
-              <input
-                type="checkbox"
-                checked={selected.includes(lead.id)}
-                onChange={() => handleToggle(lead.id)}
-              />
-            </td>
-            <td className="p-2">{lead.name}</td>
-            <td>{lead.contact}</td>
-            <td>{lead.email || "-"}</td>
-            <td>{lead.leadType}</td>
-            <td>{lead.propertyType}</td>
-            <td>{lead.isAvailable ? "Available" : "Unavailable"}</td>
-            <td>{lead.price ? `$${lead.price}` : "-"}</td>
-            <td>
-              <div className="flex flex-wrap gap-1">
-                {(lead.tags || []).map((tag: any) => (
-                  <span key={tag.id} className="bg-gray-200 px-2 py-1 text-xs rounded-full flex items-center gap-1">
-                    {tag.name}
-                    <button
-                      type="button"
-                      onClick={() => removeTag(tag.id, lead.id)}
-                      className="text-red-500 hover:text-red-700"
-                    >×</button>
-                  </span>
-                ))}
-              </div>
-            </td>
-            <td className="space-x-2">
-              <Link href={`/admin/leads/view/${lead.id}`} className="text-blue-600 underline">View</Link>
-              <Link href={`/admin/leads/edit/${lead.id}`} className="text-yellow-600 underline">Edit</Link>
+  const removeTag = async (tagId:string, leadId:string) => {
+    await fetch(`/api/admin/leads/${leadId}/tags/${tagId}`, { method:'DELETE' })
+    setLeads(l => l.map(lead => lead.id===leadId
+      ? { ...lead, tags: lead.tags.filter(t=>t.id!==tagId) }
+      : lead
+    ))
+  }
 
-              {lead.isAvailable && (
-                <StripeCheckoutButton
-                lead={{
-                  id: lead.id,
-                  name: lead.name,
-                  price: lead.price,
-                  propertyType: lead.propertyType
-                }}
-                userId={session?.user?.id}
-              />
-              )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-
-  const buyerLeads = leads.filter((lead: any) => lead.leadType === "BUYER");
-  const sellerLeads = leads.filter((lead: any) => lead.leadType === "SELLER");
+  // Derived subsets
+  const buyer = leads.filter(l=>l.leadType==='BUYER')
+  const seller = leads.filter(l=>l.leadType==='SELLER')
 
   return (
     <AdminLayout>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">All Leads</h1>
-        <Link href="/admin/leads/add" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-          + Add New Lead
-        </Link>
-        
-      </div>
+      <div className="px-8 pt-6 pb-12 font-plus-jakarta-sans">
 
-      <details className="border rounded p-4 bg-gray-50 mb-6">
-        <summary className="font-medium cursor-pointer">Filters & Bulk Actions</summary>
-        <div className="flex flex-wrap gap-4 mt-4">
-          <input type="text" placeholder="Search by name, contact, email or area" className="border p-2 rounded w-64" value={filters.query} onChange={(e) => { const updated = { ...filters, query: e.target.value }; setFilters(updated); localStorage.setItem("zestLeadFilters", JSON.stringify(updated)); }} />
-          <input type="text" placeholder="Property Type" className="border p-2 rounded" value={filters.propertyType} onChange={(e) => setFilters({ ...filters, propertyType: e.target.value })} />
-          <input type="text" placeholder="Tag" className="border p-2 rounded" value={filters.tag} onChange={(e) => setFilters({ ...filters, tag: e.target.value })} />
-          <select className="border p-2 rounded" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
-            <option value="">All Status</option>
-            <option value="true">Available</option>
-            <option value="false">Unavailable</option>
-          </select>
-          <input type="number" placeholder="Min Beds" className="border p-2 rounded w-24" value={filters.minBeds} onChange={(e) => setFilters({ ...filters, minBeds: e.target.value })} />
-          <input type="number" placeholder="Min Baths" className="border p-2 rounded w-24" value={filters.minBaths} onChange={(e) => setFilters({ ...filters, minBaths: e.target.value })} />
-          <input type="number" placeholder="Min Price" className="border p-2 rounded w-24" value={filters.minPrice} onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })} />
-          <input type="number" placeholder="Max Price" className="border p-2 rounded w-24" value={filters.maxPrice} onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })} />
-          <button onClick={() => { const cleared = { query: "", propertyType: "", tag: "", status: "", minBeds: "", minBaths: "", minPrice: "", maxPrice: "" }; setFilters(cleared); localStorage.removeItem("zestLeadFilters"); }} className="bg-gray-300 text-gray-700 px-4 py-2 rounded">Clear Filters</button>
+        {/* Header + Add */}
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="
+              w-[200px] h-[30px] font-semibold text-3xl leading-[25px]
+              bg-[radial-gradient(190.64%_199.6%_at_-3.96%_130%,#3A951B_0%,#1CDAF4_100%)]
+              bg-clip-text text-transparent
+            ">All Leads</h1>      
         </div>
-        <div className="flex flex-wrap gap-4 mt-4">
-          <input type="text" value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Tag name" className="border p-2 rounded w-64" />
-          <button onClick={applyBulkTag} className="bg-green-600 text-white px-4 py-2 rounded">Apply Tag to Selected</button>
-          <input type="number" value={bulkPrice} onChange={(e) => setBulkPrice(e.target.value)} placeholder="Set price" className="border p-2 rounded w-40" />
-          <button onClick={async () => { if (!bulkPrice || isNaN(parseFloat(bulkPrice)) || selected.length === 0) return; await fetch("/api/admin/leads/price-bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ leadIds: selected, price: parseFloat(bulkPrice) }) }); alert("Price updated."); setBulkPrice(""); setSelected([]); location.reload(); }} className="bg-blue-600 text-white px-4 py-2 rounded">Update Price</button>
-          <span className="text-sm text-gray-500">{selected.length} selected</span>
+
+        {/* Filters & Bulk */}
+        <details className="border rounded-lg bg-gray-50 mb-6">
+          <summary className="px-4 py-2 cursor-pointer font-medium">Filters & Bulk Actions</summary>
+          <div className="px-4 py-4 space-y-4">
+
+            {/* Search + property + status */}
+            <div className="flex items-center justify-between mb-6 space-x-4">
+              {/* ── LEFT: all your filter controls ── */}
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="relative flex-1 max-w-sm">
+                  <input
+                    type="text"
+                    placeholder="Search leads…"
+                    className="flex h-10 w-full rounded-lg border bg-secondary px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-green-500 pr-10"
+                    value={filters.query}
+                    onChange={e => {
+                      const v = e.target.value
+                      clearTimeout(debounceRef.current!)
+                      debounceRef.current = setTimeout(() => {
+                        setFilters(f => ({ ...f, query: v }))
+                      }, 300)
+                    }}
+                  />
+                  <SearchIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Property Type"
+                  className="rounded-lg border px-3 py-2 text-sm bg-secondary placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-green-500 pr-10"
+                  value={filters.propertyType}
+                  onChange={e => setFilters(f => ({ ...f, propertyType: e.target.value }))}
+                />
+                <select
+                  className="rounded-lg border px-3 py-2 text-sm bg-secondary placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-green-500 pr-10"
+                  value={filters.status}
+                  onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
+                >
+                  <option value="">All Status</option>
+                  <option value="true">Available</option>
+                  <option value="false">Unavailable</option>
+                </select>
+              </div>
+
+              {/* right-aligned Add New button */}   
+                <Button asChild size="sm" variant="outline"
+                  className="whitespace-nowrap text-white"
+                  style={{
+                    backgroundImage:
+                      'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)'
+                  }}
+                >
+                  <Link href="/admin/leads/add" >
+                    <UserPlus className="h-5 w-5 " />
+                    Add New
+                  </Link>
+                </Button>
+               
+            </div>
+
+
+            {/* Bulk tag & price */}
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex-1 max-w-sm">
+                <div className="flex items-center gap-2">
+                  <Tag className="h-5 w-5 text-gray-600" />
+                  <input
+                    type="text"
+                    placeholder="Tag name"
+                    className="flex-1 rounded-lg border px-3 py-2 text-sm bg-secondary placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-green-500 pr-10"
+                    value={bulkTag}
+                    onChange={e=>setBulkTag(e.target.value)}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={applyBulkTag}
+                className="rounded-lg px-4 py-2 font-medium text-white"
+                style={{
+                  backgroundImage:
+                    'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)'
+                }}
+              >
+                Apply Tag
+              </button>
+
+              <div className="flex-1 max-w-sm">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-gray-600" />
+                  <input
+                    type="number"
+                    placeholder="Set price"
+                    className="flex-1 rounded-lg border px-3 py-2 text-sm bg-secondary placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-green-500 pr-10"
+                    value={bulkPrice}
+                    onChange={e=>setBulkPrice(e.target.value)}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={applyBulkPrice}
+                className="rounded-lg px-4 py-2 font-medium text-white"
+                style={{
+                  backgroundImage:
+                    'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)'
+                }}
+              >
+                Update Price
+              </button>
+
+              <span className="text-gray-600">{selected.length} selected</span>
+            </div>
+          </div>
+        </details>
+
+        {/* Tabs */}
+        <div className="flex gap-6 border-b mb-6">
+          {(['BUYER','SELLER'] as const).map(tab => {
+            const isActive = activeTab === tab
+            return (
+              <button
+                key={tab}
+                onClick={() => {
+                  setActiveTab(tab)
+                  localStorage.setItem('zestTab', tab)
+                }}
+                className={`font-plus-jakarta-sans font-semibold text-[16px] leading-[20px] ${
+                  isActive
+                    ? 'bg-clip-text text-transparent underline decoration-black underline-offset-4'
+                    : 'text-black'
+                }`}
+                style={
+                  isActive
+                    ? {
+                        backgroundImage:
+                          'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)',
+                      }
+                    : undefined
+                }
+              >
+                {tab.charAt(0) + tab.slice(1).toLowerCase()}
+              </button>
+            )
+          })}
         </div>
-      </details>
 
-      <div className="flex gap-4 border-b mb-4">
-        <button className={`px-4 py-2 text-sm font-medium ${activeTab === "BUYER" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-600"}`} onClick={() => { setActiveTab("BUYER"); localStorage.setItem("zestTab", "BUYER"); }}>Buyer</button>
-        <button className={`px-4 py-2 text-sm font-medium ${activeTab === "SELLER" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-600"}`} onClick={() => { setActiveTab("SELLER"); localStorage.setItem("zestTab", "SELLER"); }}>Seller</button>
+        {/* Content */}
+        <div className="flex flex-col lg:flex-row lg:space-x-6 w-full">
+          {/* Left = Table */}
+          <div className="flex-1 space-y-4">
+            {loading ? (
+              <div className="text-center py-6 text-gray-500">Loading…</div>
+            ) : (
+              <div className="rounded-lg border border-gray-200 shadow-sm overflow-auto">
+                <table className="min-w-full bg-white">
+                  <thead className="bg-gray-50 text-gray-600 text-sm">
+                    <tr>
+                      <th className="p-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.length ===
+                            (activeTab==='BUYER' ? buyer.length : seller.length)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              const ids = (activeTab==='BUYER' ? buyer : seller).map(l=>l.id)
+                              setSelected(ids)
+                            } else {
+                              setSelected([])
+                            }
+                          }}
+                        />
+                      </th>
+                      {['Name','Contact','Email','Type','Property','Status','Price','Tags','Actions'].map((h,i) => (
+                        <th
+                          key={h}
+                          className={`p-3 text-left ${i===8?'text-center':''}`}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(activeTab==='BUYER'?buyer:seller).map(lead => {
+                      const inCart = !!lead.price && lead.isAvailable
+                      return (
+                        <tr key={lead.id} className="border-t text-sm hover:bg-gray-50">
+                          <td className="p-3">
+                            <input
+                              type="checkbox"
+                              checked={selected.includes(lead.id)}
+                              onChange={()=>toggleSelect(lead.id)}
+                            />
+                          </td>
+                          <td className="p-3">{lead.name}</td>
+                          <td className="p-3">{lead.contact}</td>
+                          <td className="p-3">{lead.email||'—'}</td>
+                          <td className="p-3">{lead.leadType}</td>
+                          <td className="p-3">{lead.propertyType}</td>
+                          <td className="p-3">
+                            {lead.isAvailable ? 'Available' : 'Unavailable'}
+                          </td>
+                          <td className="p-3">
+                            {lead.price ? `$${lead.price.toLocaleString()}` : '—'}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex flex-wrap gap-1">
+                              {lead.tags.map(t=>(
+                                <span
+                                  key={t.id}
+                                  className="inline-flex items-center gap-1 bg-gray-200 px-2 py-1 rounded-full text-xs"
+                                >
+                                  {t.name}
+                                  <button
+                                    onClick={()=>removeTag(t.id, lead.id)}
+                                    className="text-red-500 hover:text-red-700"
+                                  >×</button>
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="p-3 text-center space-x-2">
+                            <Link
+                              href={`/admin/leads/view/${lead.id}`}
+                              className="text-blue-600 underline"
+                            >
+                              View
+                            </Link>
+                            <Link
+                              href={`/admin/leads/edit/${lead.id}`}
+                              className="text-yellow-600 underline"
+                            >
+                              Edit
+                            </Link>
+                            {/* {inCart && (
+                              <StripeCheckoutButton
+                                lead={{
+                                  id: lead.id,
+                                  name: lead.name,
+                                  price: lead.price!,
+                                  propertyType: lead.propertyType
+                                }}
+                                userId={session?.user?.id}
+                              />
+                            )} */}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Right = Stats */}
+          <aside className="space-y-6 mt-6 lg:mt-0 lg:w-[300px]">
+            <div className="p-4 rounded-lg text-white shadow-sm"
+              style={{
+                backgroundImage:
+                  'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)'
+              }}
+            >
+              <p className="text-sm">Total Leads</p>
+              <h3 className="text-2xl font-semibold">{leads.length}</h3>
+            </div>
+            <div className="p-4 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 text-white shadow-sm">
+              <p className="text-sm">
+                {activeTab==='BUYER' ? 'Buyer Leads' : 'Seller Leads'}
+              </p>
+              <h3 className="text-2xl font-semibold">
+                {(activeTab==='BUYER' ? buyer : seller).length}
+              </h3>
+            </div>
+            <div className="p-4 rounded-lg text-white shadow-sm bg-gradient-to-br from-purple-500 to-indigo-600 shadow-sm">
+              <p className="text-sm">Recently Purchased Leads</p>
+              <h3 className="text-2xl font-semibold">{leads.length}</h3>
+            </div>
+            <div className="p-4 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 text-white shadow-sm">
+              <p className="text-sm">Total Leads</p>
+              <h3 className="text-2xl font-semibold">{leads.length}</h3>
+            </div>
+          </aside>
+        </div>
       </div>
-
-      {loading ? <p>Loading...</p> : leads.length > 0 ? (activeTab === "BUYER" ? renderTable(buyerLeads) : renderTable(sellerLeads)) : <p>No leads found.</p>}
     </AdminLayout>
-  );
+  )
 }
+

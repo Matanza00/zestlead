@@ -1,5 +1,5 @@
 // pages/admin/transactions/index.tsx
-import AdminLayout from "@/layouts/AdminLayout";
+import AdminLayout from "@/components/layout/AdminLayout";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import TransactionActionModal from '@/components/admin/TransactionActionModal';

@@ -1,3 +1,4 @@
+import { UserPlus } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 
 interface Lead {
@@ -107,35 +108,67 @@ export default function AssignLeadSection({ userId }: { userId: string }) {
     else alert("Failed to unassign lead");
   };
 
+  const [activeTab, setActiveTab] = useState<'BUYER'|'SELLER'>('BUYER');
+  const tabs = ['BUYER', 'SELLER'] as const;
   return (
     <div className="mt-6">
       {/* Tabs & Assign Button */}
       <div className="flex gap-4 mb-4">
-        <button
-          onClick={() => setLeadTab("BUYER")}
-          className={`px-4 py-1 rounded shadow ${leadTab === "BUYER" ? "bg-primary text-teal-300" : "bg-teal-400"}`}
-        >Buyer</button>
-        <button
-          onClick={() => setLeadTab("SELLER")}
-          className={`px-4 py-1 rounded shadow ${leadTab === "SELLER" ? "bg-primary text-teal-300" : "bg-teal-400"}`}
-        >Seller</button>
+        {(['BUYER','SELLER'] as const).map(tab => {
+          const isActive = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`
+                flex-none order-0 flex-grow-0
+                w-[46px] h-[20px]
+                font-plus-jakarta-sans font-semibold
+                text-[16px] leading-[20px]
+                  ${isActive
+            ? "bg-clip-text text-transparent underline decoration-black underline-offset-6"
+            : "text-black"}
+        `}
+        style={
+          isActive
+            ? {
+                backgroundImage:
+                  "radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+              }
+            : undefined
+        }
+      >
+              {tab.charAt(0) + tab.slice(1).toLowerCase()}
+            </button>
+          )
+        })}
+
+
         <div className="ml-auto">
           <button
-            onClick={() => setModalOpen(true)}
-            className="bg-accent text-text px-4 py-2 rounded shadow border border-gray-300"
-          >Assign Leads</button>
+          onClick={() => setModalOpen(true)}
+          className="inline-flex items-center px-4 py-2 text-white rounded-md"
+            style={{
+              background: "radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)"
+            }}>
+          <UserPlus className="h-4 w-4 mr-1" />
+          Assign Leads
+        </button>
         </div>
       </div>
 
       {/* Filters for Assigned Leads */}
       <div className="flex flex-wrap gap-4 mb-4">
         <input
-          type="text"
-          placeholder="Search assigned leads..."
-          className="border rounded p-2 flex-1 text-text shadow"
-          value={filterAssignedQuery}
-          onChange={(e) => setFilterAssignedQuery(e.target.value)}
-        />
+              type="text"
+              placeholder="Search for Leads…"
+              className="
+                flex h-10 w-full rounded-lg border bg-secondary px-3 py-2 text-sm
+                placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring pr-10
+              "
+          />
         <select
           className="border rounded p-2 text-text shadow"
           value={filterProperty}
@@ -155,8 +188,8 @@ export default function AssignLeadSection({ userId }: { userId: string }) {
       {/* Assigned Leads Table */}
       <div className="overflow-x-auto mb-6">
         <table className="table-auto w-full border-collapse shadow">
-          <thead>
-            <tr className="bg-primary text-teal-300">
+          <thead className="mb-16">
+            <tr className="text-black text-sm ">
               <th className="p-2 text-left">Lead Name</th>
               <th className="p-2 text-left">Property Type</th>
               <th className="p-2 text-left">Desired Area</th>

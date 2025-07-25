@@ -1,4 +1,4 @@
-import AdminLayout from "@/layouts/AdminLayout";
+import AdminLayout from "@/components/layout/AdminLayout";
 import { useEffect, useState } from "react";
 
 export default function ReferralAdminPage(props) {
