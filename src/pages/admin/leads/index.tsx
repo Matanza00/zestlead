@@ -6,7 +6,7 @@ import Link from 'next/link'
 import AdminLayout from '@/components/layout/AdminLayout'
 import StripeCheckoutButton from '@/components/StripeCheckoutButton'
 import { useSession } from 'next-auth/react'
-import { Search as SearchIcon, Tag, DollarSign, UserPlus } from 'lucide-react'
+import { Search as SearchIcon, Tag, DollarSign, UserPlus, Eye, Edit2, FilePlus } from 'lucide-react'
 import { Button } from '@/components/ui2/button'
 
 type Lead = {
@@ -89,7 +89,7 @@ export default function LeadListPage(props) {
 
   return (
     <AdminLayout>
-      <div className="px-8 pt-6 pb-12 font-plus-jakarta-sans">
+      <div className="px-8 pt-6 pb-12">
 
         {/* Header + Add */}
         <div className="flex justify-between items-center mb-6">
@@ -144,18 +144,7 @@ export default function LeadListPage(props) {
               </div>
 
               {/* right-aligned Add New button */}   
-                <Button asChild size="sm" variant="outline"
-                  className="whitespace-nowrap text-white"
-                  style={{
-                    backgroundImage:
-                      'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)'
-                  }}
-                >
-                  <Link href="/admin/leads/add" >
-                    <UserPlus className="h-5 w-5 " />
-                    Add New
-                  </Link>
-                </Button>
+                
                
             </div>
 
@@ -224,7 +213,7 @@ export default function LeadListPage(props) {
                   setActiveTab(tab)
                   localStorage.setItem('zestTab', tab)
                 }}
-                className={`font-plus-jakarta-sans font-semibold text-[16px] leading-[20px] ${
+                className={`font-semibold text-[16px] leading-[20px] ${
                   isActive
                     ? 'bg-clip-text text-transparent underline decoration-black underline-offset-4'
                     : 'text-black'
@@ -242,6 +231,18 @@ export default function LeadListPage(props) {
               </button>
             )
           })}
+          <Button asChild size="sm" variant="outline"
+                  className="whitespace-nowrap text-white"
+                  style={{
+                    backgroundImage:
+                      'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)'
+                  }}
+                >
+                  <Link href="/admin/leads/add" >
+                    <FilePlus className="h-5 w-5 " />
+                    Add Lead
+                  </Link>
+                </Button>
         </div>
 
         {/* Content */}
@@ -320,17 +321,26 @@ export default function LeadListPage(props) {
                             </div>
                           </td>
                           <td className="p-3 text-center space-x-2">
-                            <Link
-                              href={`/admin/leads/view/${lead.id}`}
-                              className="text-blue-600 underline"
-                            >
-                              View
+                          
+
+                            <Link href={`/admin/leads/view/${lead.id}`}>
+                              <button className="inline-flex items-center px-3 py-1 rounded-full text-xs text-white"
+                              style={{
+                                background: "radial-gradient(187.72% 415.92% at 52.87% 247.14%, #0396B7 0%, #1CDAF4 100%)"
+                              }}>
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </button>
                             </Link>
-                            <Link
-                              href={`/admin/leads/edit/${lead.id}`}
-                              className="text-yellow-600 underline"
-                            >
-                              Edit
+
+                            <Link href={`/admin/leads/edit/${lead.id}`}>
+                              <button className="inline-flex items-center px-3 py-1 mt-1 rounded-full text-xs text-white"
+                              style={{
+                                  background: "radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)"
+                                }}>
+                                <Edit2 className="h-4 w-4 mr-1" />
+                                Edit
+                              </button>
                             </Link>
                             {/* {inCart && (
                               <StripeCheckoutButton

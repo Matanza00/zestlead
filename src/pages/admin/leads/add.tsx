@@ -87,7 +87,7 @@ export default function AddLeadsPage(props) {
       <div className="max-w-3xl px-6 py-8 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="font-plus-jakarta-sans text-3xl font-semibold bg-[radial-gradient(190.64%_199.6%_at_-3.96%_130%,#3A951B_0%,#1CDAF4_100%)]
+          <h1 className="text-3xl font-semibold bg-[radial-gradient(190.64%_199.6%_at_-3.96%_130%,#3A951B_0%,#1CDAF4_100%)]
               bg-clip-text text-transparent">
             Add New Lead
           </h1>
