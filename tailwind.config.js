@@ -65,7 +65,10 @@ module.exports = {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'sans-serif'],
+        sans: ['var(--font-sans)'],
+      },
+      backgroundImage: {
+        'btn-gradient': 'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)',
       },
       keyframes: {
         "accordion-down": {

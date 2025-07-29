@@ -4,8 +4,18 @@
 @tailwind components;
 @tailwind utilities;
 
+@import "@fontsource/plus-jakarta-sans";       /* this pulls in the default weight (400) */
+@import "@fontsource/plus-jakarta-sans/500.css"; /* add additional weights as you like */
+@import "@fontsource/plus-jakarta-sans/600.css"; /* add additional weights as you like */
+@import "@fontsource/plus-jakarta-sans/700.css"; /* add additional weights as you like */
+@import "@fontsource/plus-jakarta-sans/800.css"; /* add additional weights as you like */
+
+
+
 /* 1. Define all your custom theme properties as CSS variables in :root. */
 :root {
+ /* variable font */
+  --font-sans: "Plus Jakarta Sans Variable", sans-serif;
   /* General Palette */
   --background: #ffffff;
   --foreground: #0f172a;
@@ -106,6 +116,10 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+}
+
+html {
+  font-family: "Plus Jakarta Sans Variable", sans-serif;
 }
 
 /* 3. Apply your base styles using the custom variables. */

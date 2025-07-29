@@ -1,16 +1,23 @@
-// components/admin/RefundTransactionModal.tsx
 import { useEffect, useState } from "react";
-import Modal from "../common/Modal"; // Your existing Modal wrapper
+import Modal from "../common/Modal";
 import { X } from "lucide-react";
 
-export default function RefundTransactionModal({ open, onClose }) {
-  const [users, setUsers] = useState([]);
+// Define props type
+type RefundTransactionModalProps = {
+  open: boolean;
+  onClose: () => void;
+};
+
+export default function RefundTransactionModal({
+  open,
+  onClose,
+}: RefundTransactionModalProps) {
+  const [users, setUsers] = useState<any[]>([]);
   const [userId, setUserId] = useState("");
-  const [transactions, setTransactions] = useState([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [selectedTxn, setSelectedTxn] = useState("");
   const [reason, setReason] = useState("");
 
-  
   useEffect(() => {
     if (open) {
       fetch("/api/admin/users?role=AGENT")
@@ -29,7 +36,6 @@ export default function RefundTransactionModal({ open, onClose }) {
         });
     }
   }, [open]);
-  
 
   useEffect(() => {
     if (userId) {
@@ -61,22 +67,35 @@ export default function RefundTransactionModal({ open, onClose }) {
       <div className="p-4">
         <div className="flex justify-between mb-4">
           <h2 className="text-lg font-semibold">Refund Transaction</h2>
-          <button onClick={onClose}><X /></button>
+          <button onClick={onClose}>
+            <X />
+          </button>
         </div>
 
-        <select className="w-full border p-2 rounded mb-3" value={userId} onChange={(e) => setUserId(e.target.value)}>
+        <select
+          className="w-full border p-2 rounded mb-3"
+          value={userId}
+          onChange={(e) => setUserId(e.target.value)}
+        >
           <option value="">Select User</option>
           {users.map((u) => (
-            <option key={u.id} value={u.id}>{u.name} - {u.email}</option>
+            <option key={u.id} value={u.id}>
+              {u.name} - {u.email}
+            </option>
           ))}
         </select>
 
         {userId && (
-          <select className="w-full border p-2 rounded mb-3" value={selectedTxn} onChange={(e) => setSelectedTxn(e.target.value)}>
+          <select
+            className="w-full border p-2 rounded mb-3"
+            value={selectedTxn}
+            onChange={(e) => setSelectedTxn(e.target.value)}
+          >
             <option value="">Select Transaction</option>
             {transactions.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.reference} — ${t.amount} — {new Date(t.createdAt).toLocaleDateString()}
+                {t.reference} — ${t.amount} —{" "}
+                {new Date(t.createdAt).toLocaleDateString()}
               </option>
             ))}
           </select>

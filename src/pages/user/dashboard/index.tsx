@@ -1,6 +1,14 @@
 'use client';
-import UserLayout from '@/layouts/UserLayout';
 import { useSession } from 'next-auth/react';
+import UserLayout from '../../../components/CombinedNavbar';
+import StatCard from '../../../components/dashboard/StatCard';
+import BarChartComponent from '../../../components/charts/BarChartComponent';
+import AreaChartComponent from '../../../components/charts/AreaChartComponent';
+import RecentLeads from '../../../components/dashboard/RecentLeads';
+import Subscription from '../../../components/dashboard/Subscription';
+import Balance from '../../../components/dashboard/Balance';
+import RecentActivity from '../../../components/dashboard/RecentActivity';
+import GradientIcon from '../../../components/ui/GradientIcon'; // ✨ Import the new icon component
 
 export default function UserDashboard(props) {
   const { data: session } = useSession();
@@ -8,52 +16,55 @@ export default function UserDashboard(props) {
   return (
     <UserLayout>
       {/* full-page gradient */}
-      <div
-        className="min-h-screen p-6 space-y-6"
-        style={{
-          background: 'linear-gradient(135deg, var(--tw-gradient-stops))',
-        }}
-        // className="bg-gradient-to-br from-bgStart to-bgEnd"
-      >
-        {/* Welcome */}
-        <h1 className="text-4xl font-heading text-surface">
-          Welcome, {session?.user?.name || 'Agent'} 👋
-        </h1>
-
-        {/* Stats cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            { label: 'Subscription Plan', value: 'Premium' },
-            { label: 'Lead Credits', value: '12 Remaining' },
-            { label: 'Leads Purchased', value: '38' },
-          ].map(({ label, value }) => (
-            <div
-              key={label}
-              className="bg-surface rounded-2xl shadow-md p-6 flex flex-col"
-            >
-              <span className="text-sm font-medium text-text">{label}</span>
-              <span className="mt-2 text-2xl font-semibold text-primary">
-                {value}
-              </span>
+      <div className="p-4 sm:p-6 bg-gray-50/50 min-h-screen">
+              <div className="mb-6">
+                <h1 className="text-2xl font-bold text-gray-800">Welcome, John!</h1>
+              </div>
+              <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                <div className="xl:col-span-3 space-y-6">
+                  {/* Stats Section */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    <StatCard
+                      title="New Leads"
+                      value="54"
+                      buttonText="Visit Marketplace"
+                      icon={<GradientIcon name="newLeads" />}
+                      buttonIcon={
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-2"><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
+                      }
+                    />
+                    <StatCard
+                      title="Purchased Leads"
+                      value="120"
+                      buttonText="Manage Leads"
+                      icon={<GradientIcon name="purchasedLeads" />}
+                    />
+                    <StatCard
+                      title="Contacted Leads"
+                      value="84"
+                      buttonText="View Status"
+                      icon={<GradientIcon name="contactedLeads" />}
+                    />
+                  </div>
+      
+                  {/* Charts Section */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <BarChartComponent />
+                    <AreaChartComponent />
+                  </div>
+      
+                  {/* Recent Leads Table */}
+                  <RecentLeads />
+                </div>
+      
+                {/* Right Sidebar */}
+                <div className="xl:col-span-1 space-y-6">
+                  <Subscription />
+                  <Balance />
+                  <RecentActivity />
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-surface rounded-2xl shadow-md p-6">
-          <h2 className="text-2xl font-heading text-text mb-4">
-            Recent Activity
-          </h2>
-          
-          <ul className="space-y-2 font-body text-text">
-            <li>• Purchased lead for “DHA Phase 6 – PKR 2.5Cr”</li>
-            <li>• Updated profile email</li>
-            <li>• Contacted lead “Bahria Town – 5 Marla”</li>
-          </ul>
-        </div>
-      </div>
-
-      <p className="text-red-500">🔴 If this text is red, Tailwind is now loaded!</p>
 
     </UserLayout>
   );

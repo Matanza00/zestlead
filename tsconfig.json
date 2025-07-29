@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
+    "typeRoots": ["./types", "./node_modules/@types"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -18,6 +19,6 @@
       "@/*": ["*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "prisma/seed.js", "script/backfillStripeCustomers.js", "tailwind.config.js", "src/components/CombinedNavbar.js", "src/components/DealsClosedChart.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "types", "prisma/seed.js", "script/backfillStripeCustomers.js", "tailwind.config.js", "src/components/CombinedNavbar.js", "src/components/DealsClosedChart.js"],
   "exclude": ["node_modules"]
 }
