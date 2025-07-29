@@ -8,14 +8,41 @@ const AgentIcon = (props) => (
     </svg>
 );
 
-// SVG icon for 'Subscription', designed to match the image.
-const SubscriptionIcon = (props) => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-        <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M14 2V8H20" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M9.5 15.5L11.5 17.5L15.5 13.5" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-);
+// src/components/icons/SubscriptionIcon.js
+
+
+
+// SVG icon for 'Subscription', updated to use the theme gradient.
+const SubscriptionIcon = (props) => {
+    // A unique ID for the gradient definition.
+    const uniqueId = 'subscription-icon-gradient';
+    
+    // Transform ensures the gradient's appearance is consistent with other icons.
+    const gradientTransform = "translate(22.4957 35.4552) rotate(-105.581) scale(39.6972 35.3611)";
+
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+            <defs>
+                <radialGradient
+                    id={uniqueId}
+                    gradientUnits="userSpaceOnUse"
+                    gradientTransform={gradientTransform}
+                >
+                    {/* These CSS variables are pulled from your global.css for theme consistency */}
+                    <stop stopColor="var(--icon-gradient-start)" />
+                    <stop offset="1" stopColor="var(--icon-gradient-end)" />
+                </radialGradient>
+            </defs>
+            {/* The <g> tag applies the gradient stroke to all nested paths */}
+            <g stroke={`url(#${uniqueId})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z"/>
+                <path d="M14 2V8H20"/>
+                <path d="M9.5 15.5L11.5 17.5L15.5 13.5"/>
+            </g>
+        </svg>
+    );
+};
+
 
 
 const SubscriptionCard = () => (

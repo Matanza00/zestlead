@@ -1,9 +1,4 @@
-/* This CSS file is structured to work with modern Tailwind CSS setups
-   by using the @theme directive to map your custom variables.
-*/
-
 @import "tailwindcss";
-@import "tw-animate-css";
 
 @tailwind base;
 @tailwind components;
@@ -12,46 +7,60 @@
 /* 1. Define all your custom theme properties as CSS variables in :root. */
 :root {
   /* General Palette */
-  --background: #f8fafc;
+  --background: #ffffff;
   --foreground: #0f172a;
   --card: #ffffff;
   --card-foreground: #0f172a;
   --popover: #ffffff;
   --popover-foreground: #0f172a;
 
-  /* --- Primary Color Family (Updated to original website palette) --- */
-  --primary: #285B19;          /* Deep, dark green */
-  --primary-light: #BCF1A5;      /* Vibrant light green */
-  --primary-dark: #285B19;         /* Using the base dark green as the darkest shade */
-  --primary-foreground: #ffffff;  /* White text for high contrast */
+  /* --- Primary Color Family --- */
+  --primary: #285B19;
+  --primary-light: #BCF1A5;
+  --primary-dark: #285B19;
+  --primary-foreground: #ffffff;
 
   /* Secondary & Muted Palette */
   --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
-  --neutral: #1E2939; /* Added neutral color */
+  --neutral: hsl(216, 31%, 17%);
 
-  /* Accent & Utility Colors (Updated) */
-  --accent: #BCF1A5;              /* Using the light green for accents */
-  --accent-foreground: #285B19;    /* Dark green text for high contrast on accents */
+  /* Accent & Utility Colors */
+  --accent: #BCF1A5;
+  --accent-foreground: #285B19;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #e2e8f0;
   --input: #e2e8f0;
-  --ring: #BCF1A5;                /* Ring color matches the new light green accent */
-  --plan-color: #a855f7;          /* Purple for plan highlights (like Tailwind's purple-500) */
+  --ring: #BCF1A5;
+  --plan-color: #a855f7;
   --radius: 0.5rem;
+  
+  /* --- Gradient Specific Vars --- */
+  --card-gradient-start: #26D0CE;
+  --card-gradient-end: #34D399;
+  --theme-gradient-start: var(--primary-dark);
+  --theme-gradient-end: var(--primary-light);
 
-  /* --- Icon Gradient Specific Vars --- */
-  --icon-gradient-start: #BCF1A5;
-  --icon-gradient-end: #285B19;
+  /* --- Precise Button Gradient Vars --- */
+  --buy-now-start: #2DD4BF; /* A bright teal */
+  --buy-now-end: #34D399;   /* A vibrant green */
 
-  /* --- Sidebar Specific Vars (Updated) --- */
+  /* --- Professional Radial Gradient Vars --- */
+  --radial-start: #3A951B;
+  --radial-end: #1CDAF4;
+
+  /* --- New Custom Radial Gradient Vars --- */
+  --custom-radial-start: #0396B7;
+  --custom-radial-end: #1CDAF4;
+
+  /* --- Sidebar Specific Vars --- */
   --sidebar-background: #ffffff;
   --sidebar-foreground: #475569;
-  --sidebar-active-background: var(--accent); /* Using the new light green accent */
-  --sidebar-active-foreground: var(--primary); /* Using the new primary green for active text/icon */
+  --sidebar-active-background: var(--accent);
+  --sidebar-active-foreground: var(--primary);
   --sidebar-accent: #f1f5f9;
   --sidebar-accent-foreground: #0f172a;
   --sidebar-border: #e2e8f0;
@@ -73,7 +82,7 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-neutral: var(--neutral); /* Mapped neutral color */
+  --color-neutral: var(--neutral);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -111,4 +120,37 @@
   * {
     @apply border-border;
   }
+}
+
+/* 4. Add component layers for custom utilities like gradients. */
+@layer components {
+  .primary-text{
+    color:#3A951B;
+  }
+
+  .font-inter {
+    font-family: Inter;
+  }
+    .bg-card-gradient {
+        background-image: linear-gradient(to right, var(--card-gradient-start), var(--card-gradient-end));
+    }
+    .bg-theme-gradient {
+        background-image: linear-gradient(to right, var(--theme-gradient-start), var(--theme-gradient-end));
+    }
+    .bg-buy-now-gradient {
+        background: radial-gradient(187.72% 415.92% at 52.87% 247.14%, var(--radial-start) 0%, var(--radial-end) 100%);
+    }
+    .bg-professional-gradient {
+        background: radial-gradient(187.72% 415.92% at 52.87% 247.14%, var(--radial-start) 0%, var(--radial-end) 100%);
+    }
+    .bg-remaining-lead {
+        background: radial-gradient(187.72% 415.92% at 52.87% 247.14%, var(--custom-radial-start) 0%, var(--custom-radial-end) 100%);
+    }
+
+    .deselect-button {
+                       border: 3px solid;
+
+                  border-image-source: radial-gradient(187.72% 415.92% at 52.87% 247.14%, #D1D5DC 0%, #4A5565 100%) ;
+                    box-shadow: 0px 0px 4px 0px rgba(255, 255, 255, 0.15) inset;
+    }
 }

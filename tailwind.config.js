@@ -1,6 +1,5 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  // 1. Configure paths to all your template files
   content: [
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -8,7 +7,6 @@ module.exports = {
   ],
   theme: {
     extend: {
-      // 2. Extend the theme with your custom colors, fonts, etc.
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -38,6 +36,7 @@ module.exports = {
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--accent-foreground))',
         },
+        neutral: 'hsl(var(--neutral))', // ✅ Added your custom neutral color
         popover: {
           DEFAULT: 'hsl(var(--popover))',
           foreground: 'hsl(var(--popover-foreground))',
@@ -47,17 +46,17 @@ module.exports = {
           foreground: 'hsl(var(--card-foreground))',
         },
         sidebar: {
-            background: 'hsl(var(--sidebar-background))',
-            foreground: 'hsl(var(--sidebar-foreground))',
-            active: {
-                background: 'hsl(var(--sidebar-active-background))',
-                foreground: 'hsl(var(--sidebar-active-foreground))',
-            },
-            accent: {
-                DEFAULT: 'hsl(var(--sidebar-accent))',
-                foreground: 'hsl(var(--sidebar-accent-foreground))',
-            },
-            border: 'hsl(var(--sidebar-border))',
+          background: 'hsl(var(--sidebar-background))',
+          foreground: 'hsl(var(--sidebar-foreground))',
+          active: {
+            background: 'hsl(var(--sidebar-active-background))',
+            foreground: 'hsl(var(--sidebar-active-foreground))',
+          },
+          accent: {
+            DEFAULT: 'hsl(var(--sidebar-accent))',
+            foreground: 'hsl(var(--sidebar-accent-foreground))',
+          },
+          border: 'hsl(var(--sidebar-border))',
         }
       },
       borderRadius: {
@@ -68,7 +67,6 @@ module.exports = {
       fontFamily: {
         sans: ['Plus Jakarta Sans', 'sans-serif'],
       },
-      // You can also extend other properties like keyframes for animations
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -85,5 +83,5 @@ module.exports = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')], // Optional: for animations
+  plugins: [require('tailwindcss-animate')],
 };

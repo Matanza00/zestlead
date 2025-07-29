@@ -1,71 +1,284 @@
-"use client";
+import React from 'react';
+import UserLayout from '../../components/CombinedNavbar';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-
-// --- ICONS --- (Added Notification Icon)
-const Icons = {
-    // Added Notification Bell Icon
-    Notification: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>,
-    Cart: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>,
-    Dashboard: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 mr-3"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>,
-    Leads: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 mr-3"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path><line x1="3" x2="21" y1="6" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>,
-    Profile: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 mr-3"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>,
-    Subscription: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 mr-3"><rect width="20" height="14" x="2" y="5" rx="2"></rect><line x1="2" x2="22" y1="10" y2="10"></line></svg>,
-    Wallet: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 mr-3"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>,
-    Activity: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 mr-3"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"></path></svg>,
-    Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 mr-3"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>,
-    Help: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 mr-3"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg>,
-    About: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 mr-3"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>,
-    Menu: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>,
-    Search: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-muted-foreground"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>,
-};
-
-
-// --- NavLink Component --- (Updated to use CSS theme variables)
-const NavLink = ({ href, children, icon: Icon }) => {
-    const pathname = usePathname();
-    const isActive = pathname === href;
-
-    return (
-        <Link href={href} passHref>
-            <span className={`flex items-center py-2 px-3 text-m rounded-md transition-colors  
-                ${isActive
-                    ? 'bg-sidebar-active-background/40 text-sidebar-active-foreground [&>svg]:text-sidebar-active-foreground'
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-normal'
-                }`}>
-                <Icon />
-                {children}
-            </span>
-        </Link>
-    );
-};
-
-
-// components/UpgradePlanCard.jsx
-
-
-/**
- * Icon for the "Buy Now" button.
- */
-// --- Upgrade Plan Card Component and its assets (FIXED) ---
-
-/**
- * Icon for the "Buy Now" button.
- */
-const BuyIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <path d="M7.5 7.67001V6.70001C7.5 4.45001 9.31 2.24001 11.56 2.03001C14.24 1.77001 16.5 3.88001 16.5 6.51001V7.89001" stroke="#4EBC26" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M9 22H15C19.02 22 19.74 20.39 19.95 18.43L20.7 12.43C20.97 9.99 20.27 8 16 8H8C3.73 8 3.03 9.99 3.3 12.43L4.05 18.43C4.26 20.39 4.98 22 9 22Z" stroke="#4EBC26" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M15.4955 12H15.5045" stroke="#4EBC26" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M8.4955 12H8.5045" stroke="#4EBC26" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
+// In a real React application, you would place the Google Fonts <link> tag
+// in the <head> of your public/index.html file.
+const GoggleFonts = () => (
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
 );
 
-/**
- * Renders the large background house SVG.
- */
+// This component now contains all styles, including those for your UpgradePlanCard.
+const CheckoutStyles = () => (
+    <style>{`
+        body {
+            background-color: #E9EAF0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem;
+            color: #4A5565;
+            box-sizing: border-box;
+        }
+
+        .checkout-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            width: 100%;
+            max-width: 1200px;
+            /* MODIFIED: Added 36px padding on left and right */
+            padding: 0 36px;
+                       padding-bottom: 2.5rem;
+
+            padding-top: 2.5rem;
+            box-sizing: border-box;
+        }
+
+        .order-summary {
+            background-color: #FFFFFF;
+ 
+            border-radius: 16px;
+            /* MODIFIED: Set width to 50% and accounted for gap */
+            width: calc(50% - 1rem);
+            min-width: 320px;
+        }
+
+        .header {
+            /* MODIFIED: Changed flex direction to stack title and order ID */
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .checkout-title {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-weight: 600;
+            font-size: 32px;
+            line-height: 100%;
+            color: #1F2937;
+            margin: 0;
+        }
+
+        .order-id {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-weight: 700;
+            font-size: 32px;
+            line-height: 100%;
+            color: #1F2937;
+            margin: 0;
+        }
+
+        .details-header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #E5E7EB;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .details-header span {
+            font-weight: 600;
+            font-size: 16px;
+            color: #6B7280;
+        }
+        
+        .details-header .price-label {
+             padding-right: 1rem;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 1.5rem 0;
+            border-bottom: 1px solid #E5E7EB;
+        }
+
+        .item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .item-name {
+            font-weight: 400;
+            font-size: 18px;
+            color: #1F2937;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .info-icon {
+            color: #9CA3AF;
+            width: 16px;
+            height: 16px;
+        }
+
+        .item-properties {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            font-size: 14px;
+            color: #6B7280;
+        }
+
+        .item-properties span {
+            line-height: 1.4;
+        }
+
+        .item-properties b {
+            color: #1F2937;
+            font-weight: 600;
+        }
+
+        .item-price-section {
+             display: flex;
+             align-items: center;
+             gap: 1rem;
+        }
+        
+        .item-price, .discount-price {
+            font-weight: 600;
+            font-size: 18px;
+            color: #1F2937;
+            text-align: right;
+        }
+        
+        .discount-price-wrapper {
+             text-align: right;
+        }
+
+        .original-price {
+            font-size: 14px;
+            color: #9CA3AF;
+            text-decoration: line-through;
+        }
+        
+        .original-price-details {
+             font-size: 12px;
+             text-decoration: none;
+             display: block;
+        }
+
+        .apply-discount-btn {
+            background: none;
+            border: none;
+            color: #4B5568;
+            font-weight: 600;
+            font-size: 14px;
+            text-decoration: underline;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .total-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 0;
+            font-size: 18px;
+            color: #4B5568;
+        }
+        
+        .total-section .total-price {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1F2937;
+        }
+
+        .promo-section {
+            padding-bottom: 1.5rem;
+        }
+
+        .promo-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #D1D5DB;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+            margin-bottom: 0.5rem;
+        }
+        .promo-input::placeholder {
+            color: #9CA3AF;
+        }
+
+        .promo-status {
+            font-size: 14px;
+            color: #3A951B;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .promo-note {
+            font-size: 12px;
+            color: #9CA3AF;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+            border-top: 1px solid #E5E7EB;
+            padding-top: 1.5rem;
+        }
+        
+        .add-leads-btn, .confirm-order-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0px 0px 4px 0px rgba(255, 255, 255, 0.15) inset;
+        }
+
+        .add-leads-btn {
+            width: 181px;
+            height: 42px;
+            gap: 6px;
+            border-radius: 40px;
+            padding: 10px 16px;
+            background: radial-gradient(187.72% 415.92% at 52.87% 247.14%, #D1D5DC 0%, #4A5565 100%);
+        }
+        
+        .confirm-order-btn {
+            width: 168px;
+            height: 42px;
+            gap: 6px;
+            border-radius: 40px;
+            padding: 10px 16px;
+            background: radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%);
+        }
+
+        /* Styles For UpgradePlanCard Component */
+        .upgrade-plan-wrapper {
+            /* MODIFIED: Set width to 50% and accounted for gap */
+            width: calc(50% - 1rem);
+            min-width: 300px;
+        }
+    `}</style>
+);
+
+
+const leadsData = [
+    { id: 1, name: 'Emily Johnson', area: 'California', type: 'Townhouse', priceRange: '$250K-500K', price: 72 },
+    { id: 2, name: 'Michael Brown', area: 'New York', type: 'Apartment', priceRange: '$300K-600K', price: 85 },
+    { id: 3, name: 'Sarah Davis', area: 'Florida', type: 'Villa', priceRange: '$200K-400K', price: 45, discount: true },
+    { id: 4, name: 'David Wilson', area: 'Texas', type: 'Single Family Home', priceRange: '$150K-300K', price: 35, originalPrice: 50, discountPercent: '30% off' }
+];
+
+// --- SVG Components Omitted for Brevity ---
+
 const HouseBackground = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -134,28 +347,40 @@ const HouseBackground = () => (
   </svg>
 );
 
+const InfoIcon = () => (
+    <svg className="info-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16" />
+        <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.055.491.223.596.471.107.248.163.608.163 1.217 0 .54-.06.952-.18 1.263-.124.312-.355.51-.694.593l-.22.046-.054.39.22.046c.459.09.843.348 1.05.748.205.4.308.95.308 1.625 0 .61-.093 1.1-.28 1.465-.18.365-.46.635-.83.795l-.22.093v.38h1.844v-.38l-.22-.093c-.45-.185-.75-.545-.9-.985-.155-.44-.23-.975-.23-1.55 0-.58.08-1.07.23-1.46.15-.385.42-.675.81-.845l.22-.093v-.38l-.22-.093c-.42-.175-.72-.495-.87-.88-.15-.385-.22-.875-.22-1.45 0-.6.08-1.1.23-1.5.15-.4.4-.7.75-.95l.22-.093v-.38H8.93z" />
+    </svg>
+);
 
+// Helper component for the background SVG in the upgrade card
+
+// Renamed from BuyIcon to use the correct SVG from the prompt
+const UpgradeIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <path d="M12 12H15C16.5913 12 18.1174 11.3679 19.2426 10.2426C20.3679 9.11742 21 7.5913 21 6V5H18C16.4087 5 14.8826 5.63214 13.7574 6.75736C12.6321 7.88258 12 9.4087 12 11H9C7.4087 11 5.88258 10.3679 4.75736 9.24264C3.63214 8.11742 3 6.5913 3 5V3H6C7.5913 3 9.11742 3.63214 10.2426 4.75736C11.3679 5.88258 12 7.4087 12 9V15M7 15H17V19C17 19.5304 16.7893 20.0391 16.4142 20.4142C16.0391 20.7893 15.5304 21 15 21H9C8.46957 21 7.96086 20.7893 7.58579 20.4142C7.21071 20.0391 7 19.5304 7 19V15Z" stroke="#4EBC26" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
+// Your UpgradePlanCard component, adapted to use inline styles and correct props
 const UpgradePlanCard = () => {
     return (
-        <div className="relative w-full rounded-2xl overflow-hidden" style={{ backgroundColor: '#4EBC26' }}>
-            {/* Background SVG Wrapper */}
-            {/* MODIFIED: Changed inset-0 to bottom-0 left-0 w-full */}
-            <div className="absolute bottom-0 left-0 w-full z-0 opacity-50">
+        <div style={{ position: 'relative', width: '100%', borderRadius: '16px', overflow: 'hidden', background: 'linear-gradient(180deg, #4EBC26 0%, #4EBC26 100%)' }}>
+            <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', zIndex: 0, opacity: 0.1 }}>
                 <HouseBackground />
             </div>
-
-            {/* Content Wrapper */}
-            <div className="relative z-10 p-6 text-white flex flex-col items-start">
-                <h2 className="font-semibold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '24px', lineHeight: '28px', fontWeight: 600 }}>
+            <div style={{ position: 'relative', zIndex: 10, padding: '1rem', color: 'white', display: 'flex', flexDirection: 'column', }}>
+                <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '28px', lineHeight: '1.2', fontWeight: 700, margin: '0 0 1rem 0' }}>
                     Upgrade your plan now
                 </h2>
-                <p className="mt-2 text-white/90" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '16px', lineHeight: '20px', fontWeight: 400 }}>
+                <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '16px', lineHeight: '1.5', fontWeight: 400, color: 'rgba(255, 255, 255, 0.9)', margin: '0 0 2rem 0', maxWidth: '300px' }}>
                     Get more leads and get notified first for every hot lead
                 </p>
-                <button className="mt-6 flex items-center justify-center bg-white py-3 px-5 rounded-lg transition-colors hover:bg-gray-100" style={{ color: '#4EBC26' }}>
-                    <BuyIcon />
-                    <span className="ml-2" style={{ fontFamily: "'Inter', sans-serif", fontSize: '16px', lineHeight: '100%', fontWeight: 600 }}>
-                        Buy Now
+                <button style={{ display: 'flex',alignSelf: 'start',alignItems: 'center', justifyContent: 'center', backgroundColor: 'white', padding: '12px 24px', borderRadius: '40px', color: '#4EBC26', border: 'none', cursor: 'pointer', gap: '8px' }}>
+                    <UpgradeIcon />
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '16px', fontWeight: 600 }}>
+                        Upgrade Now
                     </span>
                 </button>
             </div>
@@ -164,127 +389,85 @@ const UpgradePlanCard = () => {
 };
 
 
-
-// --- Main Layout Component ---
-export default function CombinedNavSidebar({ children }) {
-    const [isSidebarOpen, setSidebarOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const pathname = usePathname();
-
-    const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
-
-    useEffect(() => {
-        if (isSidebarOpen) setSidebarOpen(false);
-    }, [pathname]);
-
-    const debounceTimeoutRef = useRef(null);
-    const handleSearchChange = useCallback((e) => {
-        const value = e.target.value;
-        setSearchTerm(value);
-        if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-        debounceTimeoutRef.current = setTimeout(() => {
-            console.log('Search triggered with:', value);
-        }, 300);
-    }, []);
-    
-    useEffect(() => {
-        return () => {
-            if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-        };
-    }, []);
+const CheckoutComponent = () => {
+    const total = leadsData.reduce((acc, lead) => acc + lead.price, 0);
 
     return (
-        <div className="flex w-full min-h-screen bg-background">
-
-            {/* --- SIDEBAR --- */}
-            <aside
-                id="sidebar"
-                className={`
-                    fixed top-4 left-4 z-40 w-64 h-[calc(100vh-2rem)]
-                    bg-card rounded-[16px] shadow-sm
-                    flex flex-col transition-transform
-                    lg:static lg:w-55 lg:h-auto lg:shrink-0 lg:mr-2 lg:translate-x-0
-                    ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-                `}
-            >
-                {/* Scrollable Navigation Area */}
-                <div className="flex-1 overflow-y-auto px-6 py-2">
-                    <div className="flex items-center h-16 mb-4">
-                        <h1 className="text-xl font-bold bg-gradient-to-r from-primary-light to-primary-dark bg-clip-text text-transparent">
-                            ZestLeads
-                        </h1>
+        <UserLayout>
+            <GoggleFonts />
+            <CheckoutStyles />
+            <div className="checkout-container">
+                <div className="order-summary">
+                    <div className="header">
+                        <h1 className="checkout-title">Check Out</h1>
+                        <p className="order-id">Order ID #2423</p>
                     </div>
-                    <nav className="space-y-1">
-                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Overview</h3>
-                        <NavLink href="/user/iinn" icon={Icons.Dashboard}>Dashboard</NavLink>
-                        <NavLink href="/leads" icon={Icons.Leads}>Leads</NavLink>
-                    </nav>
-                    <nav className="space-y-1 mt-6">
-                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Profile</h3>
-                        <NavLink href="/profile" icon={Icons.Profile}>Profile</NavLink>
-                        <NavLink href="/subscription" icon={Icons.Subscription}>Subscription</NavLink>
-                        <NavLink href="/wallet" icon={Icons.Wallet}>Wallet</NavLink>
-                        <NavLink href="/activity" icon={Icons.Activity}>Activity</NavLink>
-                        <NavLink href="/settings" icon={Icons.Settings}>Settings</NavLink>
-                    </nav>
-                    <nav className="space-y-1 mt-6">
-                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Support</h3>
-                        <NavLink href="/help" icon={Icons.Help}>Help & FAQ</NavLink>
-                        <NavLink href="/about" icon={Icons.About}>About</NavLink>
-                    </nav>
-                </div>
 
-                {/* Static Bottom Card Area */}
-                <div className="p-2">
+                    <div className="details-header">
+                        <span>Name</span>
+                        <span>Price</span>
+                    </div>
+
+                    <div className="cart-items">
+                        {leadsData.map(lead => (
+                            <div className="cart-item" key={lead.id}>
+                                <div className="item-info">
+                                    <span className="item-name">{lead.name} <InfoIcon /></span>
+                                    <div className="item-properties">
+                                        <span>Area<b>{lead.area}</b></span>
+                                        <span>Type<b>{lead.type}</b></span>
+                                        <span>Property Price<b>{lead.priceRange}</b></span>
+                                    </div>
+                                </div>
+                                {lead.discount && (
+                                    <div className="item-price-section">
+                                        <button className="apply-discount-btn">Apply 30% Discount</button>
+                                        <span className="item-price">${lead.price}</span>
+                                    </div>
+                                )}
+                                {lead.originalPrice && (
+                                    <div className="discount-price-wrapper">
+                                        <div className="discount-price">${lead.price}</div>
+                                        <div className="original-price-details">
+                                            <span className="original-value">${lead.originalPrice}</span>
+                                            <span> {lead.discountPercent}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {!lead.discount && !lead.originalPrice && (
+                                    <span className="item-price">${lead.price}</span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="total-section">
+                        <span>Total</span>
+                        <span>{leadsData.length} Leads</span>
+                        <span className="total-price">${total}</span>
+                    </div>
+
+                    <div className="promo-section">
+                        <input className="promo-input" type="text" placeholder="Add a discount / promo code" />
+                        <div className="promo-status">
+                            <svg> {/* Checkmark SVG content */} </svg>
+                            <span>Discount Code is valid</span>
+                        </div>
+                        <p className="promo-note">Note: You can only apply the discount/promo code on a single lead.</p>
+                    </div>
+
+                    <div className="action-buttons">
+                        <button className="add-leads-btn">&lt; Add More Leads</button>
+                        <button className="confirm-order-btn">Confirm Order &gt;</button>
+                    </div>
+                </div>
+                
+                <div className="upgrade-plan-wrapper">
                     <UpgradePlanCard />
                 </div>
-            </aside>
-
-            <div id="sidebar-backdrop" onClick={toggleSidebar} className={`fixed inset-0 bg-black/60 z-30 lg:hidden ${isSidebarOpen ? 'block' : 'hidden'}`}></div>
-
-            {/* --- MAIN CONTENT WRAPPER --- */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-                {/* --- HEADER / NAVBAR --- */}
-                <header className="h-16 p-6 flex items-center justify-between sticky top-0 z-20 border-b bg-card rounded-[16px]">
-                    <div className="flex items-center gap-4">
-                        <button className="lg:hidden" onClick={toggleSidebar}><Icons.Menu /></button>
-                        <div className="relative w-full max-w-sm hidden sm:block">
-                            <input
-                                className="flex h-10 w-full rounded-lg border bg-secondary px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring pr-10"
-                                placeholder="Search for anything in the app..."
-                                value={searchTerm}
-                                onChange={handleSearchChange}
-                            />
-                            <div className="absolute inset-y-0 right-0 flex items-center justify-center w-10">
-                                <Icons.Search />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-x-3">
-                        <button className="h-10 w-10 text-primary flex items-center justify-center rounded-full hover:bg-primary-dark transition-colors shrink-0">
-                            <Icons.Cart />
-                        </button>
-                        <button className="h-10 w-10 text-muted-foreground hover:text-foreground flex items-center justify-center rounded-full hover:bg-accent transition-colors shrink-0">
-                           <Icons.Notification />
-                        </button>
-                        <button className="flex items-center space-x-3 text-left p-1 hover:bg-accent rounded-lg transition-colors">
-                            <span className="relative flex shrink-0 overflow-hidden rounded-full h-10 w-10">
-                                <img className="aspect-square h-full w-full" src="https://i.pravatar.cc/40?u=john-alan" alt="John Alan" />
-                            </span>
-                            <div className="text-sm hidden md:block">
-                                <p className="font-semibold text-foreground">John Alan</p>
-                                <p className="text-xs text-muted-foreground">Sales Expert</p>
-                            </div>
-                        </button>
-                    </div>
-                </header>
-                
-                {/* --- MAIN CONTENT AREA --- */}
-                <main className="flex-1 overflow-auto">
-                    {children}
-                </main>
             </div>
-        </div>
+        </UserLayout>
     );
-}
+};
+
+export default CheckoutComponent;
