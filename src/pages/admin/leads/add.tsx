@@ -8,17 +8,39 @@ import AdminLayout from '@/components/layout/AdminLayout'
 import { Button } from '@/components/ui2/button'
 import { ArrowLeft, Upload, List } from 'lucide-react'
 
+
 export default function AddLeadsPage(props) {
   const [mode, setMode] = useState<'manual'|'csv'>('manual')
   const [leadType, setLeadType] = useState<'BUYER'|'SELLER'>('BUYER')
   const [audioMode, setAudioMode] = useState<'url'|'upload'>('url')
   const [audioFile, setAudioFile] = useState<File|null>(null)
-  const [manualForm, setManualForm] = useState<any>({
-    name:'', contact:'', email:'', propertyType:'', beds:'', baths:'',
-    desireArea:'', priceRange:'', paymentMethod:'', preApproved:'false',
-    timeline:'', hasRealtor:'false', specialReq:'', notes:'', audioFileUrl:'',
-    price:'', leadType:'BUYER'
-  })
+  type ManualLeadForm = {
+  name: string;
+  contact: string;
+  email: string;
+  propertyType: string;
+  beds: string;
+  baths: string;
+  desireArea: string;
+  priceRange: string;
+  price: string;
+  paymentMethod: string;
+  preApproved: string;
+  timeline: string;
+  hasRealtor: string;
+  specialReq: string;
+  notes: string;
+  audioFileUrl: string;
+  leadType: 'BUYER' | 'SELLER';
+};
+
+const [manualForm, setManualForm] = useState<ManualLeadForm>({
+  name: '', contact: '', email: '', propertyType: '', beds: '', baths: '',
+  desireArea: '', priceRange: '', price: '', paymentMethod: '', preApproved: 'false',
+  timeline: '', hasRealtor: 'false', specialReq: '', notes: '', audioFileUrl: '',
+  leadType: 'BUYER',
+});
+
   const [csvData, setCsvData] = useState<any[]>([])
   const [fileName, setFileName] = useState('')
 
@@ -31,10 +53,12 @@ export default function AddLeadsPage(props) {
     const f = e.target.files?.[0]
     if (!f) return
     setFileName(f.name)
-    Papa.parse(f, {
+   Papa.parse(f, {
       header: true,
       skipEmptyLines: true,
-      complete: ({ data }) => setCsvData(data as any[])
+      complete: (result: Papa.ParseResult<Record<string, string>>) => {
+        setCsvData(result.data);
+      },
     })
   }
 
@@ -135,7 +159,7 @@ export default function AddLeadsPage(props) {
                   value={leadType}
                   onChange={e => {
                     setLeadType(e.target.value as any)
-                    setManualForm(f => ({ ...f, leadType: e.target.value }))
+                    setManualForm((f: ManualLeadForm) => ({ ...f, paymentMethod: e.target.value }))
                   }}
                 >
                   <option>BUYER</option>
@@ -285,7 +309,7 @@ export default function AddLeadsPage(props) {
                   {csvData.slice(0, 5).map((row, i) => (
                     <tr key={i} className="border-t">
                       {Object.values(row).map((v, j) => (
-                        <td key={j} className="p-2">{v}</td>
+                        <td key={j} className="p-2">{String(v)}</td>
                       ))}
                     </tr>
                   ))}

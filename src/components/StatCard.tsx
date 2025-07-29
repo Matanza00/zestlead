@@ -1,6 +1,14 @@
 import { ShoppingCart } from "lucide-react";
+import { ReactNode } from "react";
 
-export default function StatCard({ title, value, icon, buttonText }) {
+type StatCardProps = {
+  title: string;
+  value: number | string;
+  icon: ReactNode;
+  buttonText: string;
+};
+
+export default function StatCard({ title, value, icon, buttonText }: StatCardProps) {
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border border-brand-gray-DEFAULT flex flex-col justify-between">
       <div className="flex items-center space-x-3">

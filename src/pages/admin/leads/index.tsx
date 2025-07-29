@@ -20,8 +20,11 @@ type Lead = {
   price?: number
   tags: { id: string; name: string }[]
 }
+type LeadsPageProps = {
+  // add specific props here, e.g., leads: Lead[]
+};
 
-export default function LeadListPage(props) {
+const LeadsPage = (props: LeadsPageProps) => {
   const { data: session } = useSession()
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
@@ -397,3 +400,4 @@ export default function LeadListPage(props) {
   )
 }
 
+export default LeadsPage;

@@ -1,11 +1,15 @@
 // src/lib/auth.ts
-import { PrismaAdapter } from "@auth/prisma-adapter";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
+import type { AuthOptions, User } from "next-auth";
+import type { Account, Session, TokenSet, User as NextAuthUser } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 
-export const authOptions = {
+
+export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
@@ -19,14 +23,16 @@ export const authOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials?.email },
+          where: { email: credentials.email },
           include: { twoFactorAuth: true },
         });
 
         if (!user || !user.password) return null;
 
-        const isValid = await compare(credentials.password!, user.password);
+        const isValid = await compare(credentials.password, user.password);
         if (!isValid) return null;
 
         // If 2FA is enabled, return user with twoFactorPending flag
@@ -36,17 +42,18 @@ export const authOptions = {
             email: user.email,
             name: user.name,
             role: user.role,
-            twoFactorPending: true, // 👈 flag for frontend
+            twoFactorPending: true,
           };
         }
 
-        // No 2FA, proceed as usual
         return user;
       },
+
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account }: { user: NextAuthUser; account: Account | null }) {
+      // If Google account, check if user already exists
       if (account?.provider === "google") {
         const existingUser = await prisma.user.findUnique({
           where: { email: user.email! },
@@ -84,7 +91,8 @@ export const authOptions = {
 
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: JWT; user?: NextAuthUser }) {
+      // If user is signing in, add their ID and role to the token
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -93,7 +101,8 @@ export const authOptions = {
 
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: { session: Session; token: JWT }) {
+      // Add user ID and role to session
       if (token) {
         session.user.id = token.id;
         session.user.role = token.role;

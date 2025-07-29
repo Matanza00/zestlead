@@ -14,7 +14,7 @@ type User = {
   deletedAt: string | null
 }
 
-export default function AdminUsersPage(props) {
+export default function AdminUsersPage() {
   const [activeTab, setActiveTab] = useState<'users'|'admins'>('users')
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
