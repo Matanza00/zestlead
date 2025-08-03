@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ChevronDown } from 'lucide-react';
+import ChatSupportWidget from './ChatSupportWidget';
 
 // --- ICONS --- (Added Notification Icon)
 const Icons = {
@@ -50,7 +52,7 @@ const NavLink = ({ href, children, icon: Icon }) => {
 export default function CombinedNavSidebar({ children }) {
   const pathname = usePathname();
   const isLeadsRoute = 
-  pathname.startsWith('/user/leads') || 
+  // pathname.startsWith('/user/leads') ||
   pathname === '/user/my-leads'
 
   // Safe SSR initial state:
@@ -58,6 +60,9 @@ export default function CombinedNavSidebar({ children }) {
   const [leadsOpen, setLeadsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const debounceTimeoutRef = useRef(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
 
   // Hydrate from localStorage on client only
   useEffect(() => {
@@ -176,19 +181,19 @@ export default function CombinedNavSidebar({ children }) {
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">
               Profile
             </h3>
-            <NavLink href="/user/account" icon={Icons.Profile}>
+            <NavLink href="/user/account/profile" icon={Icons.Profile}>
               Profile
             </NavLink>
-            <NavLink href="/subscription" icon={Icons.Subscription}>
+            <NavLink href="/user/subscription" icon={Icons.Subscription}>
               Subscription
             </NavLink>
             <NavLink href="/wallet" icon={Icons.Wallet}>
               Wallet
             </NavLink>
-            <NavLink href="/activity" icon={Icons.Activity}>
+            <NavLink href="/user/activity" icon={Icons.Activity}>
               Activity
             </NavLink>
-            <NavLink href="/settings" icon={Icons.Settings}>
+            <NavLink href="/user/settings" icon={Icons.Settings}>
               Settings
             </NavLink>
           </nav>
@@ -198,7 +203,7 @@ export default function CombinedNavSidebar({ children }) {
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">
               Support
             </h3>
-            <NavLink href="/help" icon={Icons.Help}>
+            <NavLink href="/user/support/help" icon={Icons.Help}>
               Help & FAQ
             </NavLink>
             <NavLink href="/about" icon={Icons.About}>
@@ -228,43 +233,98 @@ export default function CombinedNavSidebar({ children }) {
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* --- HEADER / NAVBAR --- */}
                 <header className="h-16 p-6 flex items-center justify-between sticky top-0 z-20 border-b bg-card rounded-[16px]">
-                    <div className="flex items-center gap-4">
-                        <button className="lg:hidden" onClick={toggleSidebar}><Icons.Menu /></button>
-                        <div className="relative w-full max-w-sm hidden sm:block">
-                            <input
-                                className="flex h-10 w-full rounded-lg border bg-secondary px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring pr-10"
-                                placeholder="Search for anything in the app..."
-                                value={searchTerm}
-                                onChange={handleSearchChange}
-                            />
-                            <div className="absolute inset-y-0 right-0 flex items-center justify-center w-10">
-                                <Icons.Search />
-                            </div>
-                        </div>
-                    </div>
+                {/* LEFT SIDE */}
+                <div className="flex items-center gap-4">
+                  <button className="lg:hidden" onClick={toggleSidebar}><Icons.Menu /></button>
 
-                    <div className="flex items-center gap-x-3">
-                        <button className="h-10 w-10 text-primary flex items-center justify-center rounded-full hover:bg-primary-dark transition-colors shrink-0">
-                            <Icons.Cart />
-                        </button>
-                        <button className="h-10 w-10 text-muted-foreground hover:text-foreground flex items-center justify-center rounded-full hover:bg-accent transition-colors shrink-0">
-                           <Icons.Notification />
-                        </button>
-                        <button className="flex items-center space-x-3 text-left p-1 hover:bg-accent rounded-lg transition-colors">
-                            <span className="relative flex shrink-0 overflow-hidden rounded-full h-10 w-10">
-                                <img className="aspect-square h-full w-full" src="https://i.pravatar.cc/40?u=john-alan" alt="John Alan" />
-                            </span>
-                            <div className="text-sm hidden md:block">
-                                <p className="font-semibold text-foreground">John Alan</p>
-                                <p className="text-xs text-muted-foreground">Sales Expert</p>
-                            </div>
-                        </button>
+                  {/* Toggleable Search */}
+                  <div className="relative hidden sm:flex items-center">
+                    {/* Search container with animated width */}
+                    <div
+                      className={`relative transition-all duration-300 ease-in-out overflow-hidden ${
+                        showSearch ? 'w-[500px]' : 'w-[300px]'
+                      }`}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Search for anything…"
+                        className="
+                          flex h-10 w-full rounded-lg border bg-secondary px-3 py-2 text-sm
+                          placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring pr-10
+                        "
+                        value={searchTerm}
+                        onChange={handleSearchChange}
+                        onFocus={() => setShowSearch(true)}
+                        onBlur={() => setShowSearch(false)}
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center justify-center w-10">
+                        <Icons.Search className="h-4 w-4 text-muted-foreground" />
+                      </div>
                     </div>
-                </header>
+                  </div>
+
+
+                </div>
+
+                {/* RIGHT SIDE */}
+                <div className="flex items-center gap-x-3 relative">
+                  <button className="h-10 w-10 text-primary flex items-center justify-center rounded-full hover:bg-primary-dark transition-colors shrink-0">
+                    <Icons.Cart />
+                  </button>
+                  <button className="h-10 w-10 text-muted-foreground hover:text-foreground flex items-center justify-center rounded-full hover:bg-accent transition-colors shrink-0">
+                    <Icons.Notification />
+                  </button>
+
+                  {/* USER DROPDOWN */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowUserMenu(prev => !prev)}
+                      className="flex items-center space-x-3 text-left p-1 hover:bg-accent rounded-lg transition-colors"
+                    >
+                      <span className="relative flex shrink-0 overflow-hidden rounded-full h-10 w-10">
+                        <img className="aspect-square h-full w-full" src="https://i.pravatar.cc/40?u=john-alan" alt="John Alan" />
+                      </span>
+                      <div className="text-sm hidden md:block">
+                        <p className="font-semibold text-foreground">John Alan</p>
+                        <p className="text-xs text-muted-foreground">Sales Expert</p>
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground hidden md:block" />
+                    </button>
+
+                    {/* Dropdown menu */}
+                    {showUserMenu && (
+                      <div className="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                        <Link href="/" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100">
+                          <Icons.Dashboard />
+                          Home
+                        </Link>
+                        <Link href="/user/account" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100">
+                          <Icons.Profile />
+                          Profile
+                        </Link>
+                        <Link href="/subscription" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100">
+                          <Icons.Subscription />
+                          Subscription
+                        </Link>
+                        <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100">
+                          <Icons.Settings />
+                          Settings
+                        </Link>
+                        <button className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left hover:bg-gray-100">
+                          <Icons.About />
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </header>
+
                 
                 {/* --- MAIN CONTENT AREA --- */}
                 <main className="flex-1 overflow-auto">
                     {children}
+                    <ChatSupportWidget />
                 </main>
             </div>
       </div>

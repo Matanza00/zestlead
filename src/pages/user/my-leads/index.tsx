@@ -54,7 +54,10 @@ export default function MyLeadsPage(props) {
     }
   };
 
-  const filteredLeads = leads.filter((lead) => lead.leadType === selectedTab);
+const filteredLeads = Array.isArray(leads)
+  ? leads.filter((lead) => lead.leadType === selectedTab)
+  : [];
+
 
   return (
     <UserLayout>

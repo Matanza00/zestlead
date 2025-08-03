@@ -288,7 +288,10 @@ export default function UserLeadsPage(props) {
                         <span>Type</span><span>{ci.lead.propertyType}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Property Value</span><span>${ci.lead.price.toLocaleString()}</span>
+                        <span>Property Value</span>
+                          <span>
+                            {ci.lead.price != null ? `$${ci.lead.price.toLocaleString()}` : '-'}
+                          </span>
                       </div>
                     </div>
                     <div className="space-y-2 text-right">

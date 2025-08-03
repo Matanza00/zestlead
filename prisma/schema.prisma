@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "./node_modules/@prisma/client" // Explicitly set the output path
+  // output   = "./node_modules/@prisma/client" // Explicitly set the output path
 }
 
 datasource db {
@@ -38,6 +38,8 @@ model User {
   assignedLeads  AssignedLead[]
   transactions   Transaction[]
   cartItems      CartItem[]
+  activity    Activity[]
+  supportChats  SupportChat[] 
 
   accounts Account[]
   sessions Session[] 
@@ -53,13 +55,15 @@ enum Role {
 
 model Subscription {
   id           String    @id @default(uuid())
-  userId       String
+  userId       String    @unique // ← this line
   plan         SubscriptionPlan
   status       SubscriptionStatus
   credits      Int       @default(0)
   startedAt    DateTime  @default(now())
   expiresAt    DateTime
   discountId   String?
+  tierName     String?       // "Starter Agent", etc.
+  stripeSubscriptionId  String   // <- add this
 
   user         User      @relation(fields: [userId], references: [id])
   discount     Discount? @relation(fields: [discountId], references: [id])
@@ -379,4 +383,28 @@ enum NotificationType {
   PAYMENT
   SUBSCRIPTION
   LEAD
+}
+
+model Activity {
+  id          String   @id @default(uuid())
+  userId      String
+  description String
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model SupportChat {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  message   String
+  sender    SenderType     // 'USER' or 'ADMIN'
+  seen      Boolean    @default(false) // <- NEW
+  createdAt DateTime @default(now())
+}
+
+enum SenderType {
+  USER
+  ADMIN
 }

@@ -19,6 +19,6 @@
       "@/*": ["*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "types", "prisma/seed.js", "script/backfillStripeCustomers.js", "tailwind.config.js", "src/components/CombinedNavbar.js", "src/components/DealsClosedChart.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "types", "prisma/seed.js", "script/backfillStripeCustomers.js", "tailwind.config.js", "src/components/CombinedNavbar.js", "src/components/DealsClosedChart.js", "src/pages/user/leads/view/[id].js"],
   "exclude": ["node_modules"]
 }

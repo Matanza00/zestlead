@@ -20,7 +20,7 @@ export default async function handler(
 
   const { page = '1', pageSize = '10', leadType, propertyType, area, available } = req.query;
   const pageNum = parseInt(page as string, 10);
-  const size = parseInt(pageSize as string, 10);
+  const size = parseInt(pageSize as string, 12);
 
   // Build filters
   const filters: any = { deletedAt: null };
@@ -34,7 +34,16 @@ export default async function handler(
       prisma.lead.count({ where: filters }),
       prisma.lead.findMany({
         where: filters,
-        select: { id: true, name: true, desireArea: true, propertyType: true, timeline: true, leadType: true },
+        select: { id: true, 
+          name: true, 
+          desireArea: true, 
+          propertyType: true, 
+          timeline: true, 
+          leadType: true , 
+          priceRange: true,
+          beds: true,
+          baths: true,
+        },
         skip: (pageNum - 1) * size,
         take: size,
       }),

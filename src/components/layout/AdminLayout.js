@@ -24,7 +24,7 @@ const menuItems = [
   { label: 'Lead Management',      path: '/admin/leads',     icon: <FileText size={18} /> },
   { label: 'Referrals Management', path: '/admin/referrals',  icon: <FileCode size={18} /> },
   { label: 'Transaction Management', path: '/admin/transactions', icon: <CreditCard size={18} /> },
-  { label: 'Content Management',   path: '/admin/content',    icon: <FileEdit size={18} /> },
+  { label: 'Support Management',   path: '/admin/support',    icon: <FileEdit size={18} /> },
 ]
 
 export default function CombinedAdminNav({ children }) {

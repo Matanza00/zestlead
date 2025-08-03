@@ -12,23 +12,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const sub = await prisma.subscription.findFirst({
     where: {
       userId: session.user.id,
-      status: { not: 'CANCELLED' }, // Optional: only active/cancelled filtering
+      status: { not: 'CANCELLED' }, // optional
     },
   });
 
   if (!sub) {
     return res.status(200).json({
-      plan: 'None',
-      status: 'No Active Subscription',
+      plan: null,
+      tierName: null,
+      status: 'None',
       credits: 0,
-      expiresAt: new Date(),
+      expiresAt: null,
+      stripeSubscriptionId: null,
     });
   }
 
   return res.status(200).json({
     plan: sub.plan,
+    tierName: sub.tierName,
     status: sub.status,
     credits: sub.credits,
     expiresAt: sub.expiresAt,
+    stripeSubscriptionId: sub.stripeSubscriptionId,
   });
 }

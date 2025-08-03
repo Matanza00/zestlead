@@ -1,8 +1,20 @@
 // src/pages/leads/index.tsx
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { MapPin, X } from 'lucide-react';
+import {
+  MapPin,
+  X,
+  Bed,
+  Bath,
+  DollarSign,
+  Home,
+  User
+} from 'lucide-react';
+
+import Header from '@/components/landing/Header';
 
 interface PublicLead {
   id: string;
@@ -11,7 +23,11 @@ interface PublicLead {
   propertyType: string;
   timeline: string;
   leadType: 'BUYER' | 'SELLER';
+  priceRange: string;
+  beds?: number;
+  baths?: number;
 }
+
 
 interface ApiResponse {
   data: PublicLead[];
@@ -25,7 +41,7 @@ export default function PublicLeadsPage(props) {
   const [areas, setAreas] = useState<string[]>([]);
   const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(5);
+  const [pageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [filters, setFilters] = useState({
     leadType: '',
@@ -34,6 +50,34 @@ export default function PublicLeadsPage(props) {
     available: false,
   });
   const [loading, setLoading] = useState(true);
+   const router = useRouter();
+  const { data: session } = useSession();
+
+  const handleOpenDetails = async (leadId: string) => {
+    if (!session?.user) {
+      router.push(`/auth/login?callbackUrl=/cart`);
+      return;
+    }
+    console.log('Adding lead to cart with ID:', leadId);
+    // Add lead to cart
+    try {
+      const res = await fetch('/api/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId })
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to add lead to cart');
+      }
+
+      router.push('/cart');
+    } catch (error) {
+      console.error(error);
+      alert('Something went wrong. Please try again.');
+    }
+  };
+
 
   // Load dynamic area and propertyType options
   useEffect(() => {
@@ -88,9 +132,13 @@ export default function PublicLeadsPage(props) {
   const clearFilters = () =>
     setFilters({ leadType: '', propertyType: '', desireArea: '', available: false });
 
+
   return (
+    <>
+    <Header />
     <main className="max-w-6xl mx-auto p-6 space-y-6">
-      <h1 className="text-4xl font-heading text-text">Available Leads</h1>
+      
+      <h1 className="text-4xl font-heading text-text"></h1>
 
       {/* Filters Section */}
       <div className="bg-surface p-6 rounded-2xl shadow space-y-4">
@@ -223,34 +271,60 @@ export default function PublicLeadsPage(props) {
           {/* Cards */}
           <div className="space-y-6">
             {leads.map((lead) => (
-              <div key={lead.id} className="bg-surface rounded-2xl shadow p-6">
+              <div key={lead.id} className="bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-lg transition p-6">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="h-40 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500">
-                    <MapPin className="h-8 w-8" />
+                  <div className="h-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
+                    <Home className="h-10 w-10" />
                   </div>
+
                   <div className="lg:col-span-2 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="inline-block bg-accent/20 text-accent px-3 py-1 rounded-full text-sm font-semibold">
-                        {lead.propertyType} Lead
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium
+                        ${lead.leadType === 'BUYER' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                        <User className="w-4 h-4" />
+                        {lead.leadType} Lead
                       </span>
-                      <span className="text-sm text-text/60">{lead.timeline}</span>
+                      <span className="text-sm text-gray-500">{lead.timeline}</span>
                     </div>
-                    <h2 className="text-xl font-heading text-text">{lead.name}</h2>
-                    <p className="text-text">Looking in <strong>{lead.desireArea}</strong></p>
+                    <h2 className="text-xl font-semibold text-gray-800">{lead.name}</h2>
+                    <div className="flex flex-wrap gap-4 text-sm text-gray-700">
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        {lead.desireArea}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <DollarSign className="w-4 h-4 text-yellow-600" />
+                        {lead.priceRange}
+                      </span>
+                      {lead.beds !== undefined && (
+                        <span className="flex items-center gap-1">
+                          <Bed className="w-4 h-4 text-purple-500" />
+                          {lead.beds} beds
+                        </span>
+                      )}
+                      {lead.baths !== undefined && (
+                        <span className="flex items-center gap-1">
+                          <Bath className="w-4 h-4 text-blue-400" />
+                          {lead.baths} baths
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-between mt-4 gap-4">
-                  <Link
-                    href={`/leads/view/${lead.id}`}
-                    className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90"
+                {/* Action Buttons */}
+                <div className="flex flex-wrap items-center justify-between mt-5 gap-4">
+                  <button
+                    onClick={() => handleOpenDetails(lead.id)}  // ✅ Not just `handleOpenDetails`
+                    className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition"
                   >
                     Open Details
-                  </Link>
-                  <button className="border border-primary text-primary px-6 py-2 rounded-lg hover:bg-primary/10">
+                  </button>
+                  <button className="border border-primary text-primary px-6 py-2 rounded-lg hover:bg-primary/10 transition">
                     Browse Top Cash Buyers
                   </button>
                 </div>
               </div>
+
             ))}
           </div>
 
@@ -271,5 +345,6 @@ export default function PublicLeadsPage(props) {
         </>
       )}
     </main>
+    </>
   );
 }

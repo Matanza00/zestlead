@@ -9,14 +9,14 @@ export const config = {
 };
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16',
-});
+  apiVersion: '2022-11-15',
+} as any);
+
 const prisma = new PrismaClient();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   let event: Stripe.Event;
 
-  // 1️⃣ Verify webhook signature
   try {
     const buf = await buffer(req);
     const sig = req.headers['stripe-signature'];
@@ -28,129 +28,178 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // 2️⃣ Handle checkout session completed
   if (event.type === 'checkout.session.completed') {
     const sessionObj = event.data.object as Stripe.Checkout.Session;
     const meta = sessionObj.metadata ?? {};
     const userId = meta.userId as string | undefined;
+    const tierName = meta.planName as string | undefined;
+    const stripeSubId = sessionObj.subscription as string | undefined;
     const discountUsedId = meta.discountUsedId as string | undefined;
 
-    // parse leadIds (array or single)
-    let leadIds: string[] = [];
-    if (meta.leadIds) {
-      try {
-        leadIds = JSON.parse(meta.leadIds as string);
-      } catch {
-        console.warn('Invalid JSON for leadIds:', meta.leadIds);
+    const hasLeadPurchase = meta.leadIds || meta.leadId;
+
+    // 🎯 Handle Lead Purchases
+    if (hasLeadPurchase) {
+      let leadIds: string[] = [];
+      if (meta.leadIds) {
+        try {
+          leadIds = JSON.parse(meta.leadIds as string);
+        } catch {
+          console.warn('Invalid JSON for leadIds:', meta.leadIds);
+        }
+      } else if (meta.leadId) {
+        leadIds = [meta.leadId as string];
       }
-    } else if (meta.leadId) {
-      leadIds = [meta.leadId as string];
-    }
 
-    // parse assignmentIds for promo usage
-    let assignmentIds: string[] = [];
-    if (meta.assignmentIds) {
+      let assignmentIds: string[] = [];
+      if (meta.assignmentIds) {
+        try {
+          assignmentIds = JSON.parse(meta.assignmentIds as string);
+        } catch {
+          console.warn('Invalid JSON for assignmentIds:', meta.assignmentIds);
+        }
+      }
+
+      if (!userId || leadIds.length === 0) {
+        console.error('❌ Missing userId or leadIds in metadata', meta);
+        return res.status(400).json({ error: 'Missing userId or leadIds' });
+      }
+
       try {
-        assignmentIds = JSON.parse(meta.assignmentIds as string);
-      } catch {
-        console.warn('Invalid JSON for assignmentIds:', meta.assignmentIds);
+        for (const leadId of leadIds) {
+          const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+          if (!lead) continue;
+
+          await prisma.leadPurchase.upsert({
+            where: { userId_leadId: { userId, leadId } },
+            update: { status: 'NOT_CONTACTED' },
+            create: {
+              userId,
+              leadId,
+              status: 'NOT_CONTACTED',
+              ...(discountUsedId ? { discountUsedId } : {}),
+            },
+          });
+
+          await prisma.lead.update({
+            where: { id: leadId },
+            data: { isAvailable: false },
+          });
+
+          await prisma.transaction.create({
+            data: {
+              userId,
+              amount: lead.price || 0,
+              type: 'LEAD_PURCHASE',
+              status: 'SUCCESS',
+              reference: sessionObj.id,
+            },
+          });
+
+          await prisma.cartItem.deleteMany({ where: { userId, leadId } });
+
+          const { createNotification } = await import('@/lib/notify');
+          await createNotification({
+            userId,
+            type: 'PAYMENT',
+            title: 'Payment Successful',
+            message: `Your payment of PKR ${lead.price?.toLocaleString()} for lead "${lead.name}" was successful.`,
+          });
+
+          if (discountUsedId) {
+            await prisma.discountAssignment.update({
+              where: { id: discountUsedId },
+              data: { used: true },
+            });
+          }
+        }
+
+        if (assignmentIds.length > 0) {
+          await prisma.discountAssignment.updateMany({
+            where: { id: { in: assignmentIds } },
+            data: { used: true },
+          });
+        }
+
+        const promoCodeId = sessionObj.total_details?.breakdown?.discounts?.[0]?.promotion_code as string | undefined;
+        if (promoCodeId) {
+          const promo = await stripe.promotionCodes.retrieve(promoCodeId);
+          const matchedDiscount = await prisma.discount.findFirst({
+            where: { stripePromotionId: promo.id },
+            include: { assignedUsers: true },
+          });
+          if (matchedDiscount) {
+            await prisma.discountAssignment.updateMany({
+              where: { discountId: matchedDiscount.id, userId, used: false },
+              data: { used: true },
+            });
+          }
+        }
+
+        console.log(`✅ Processed purchase for user ${userId}: leads [${leadIds.join(', ')}]`);
+        return res.status(200).json({ received: true });
+      } catch (err: any) {
+        console.error('🚨 Error processing lead purchase:', err);
+        return res.status(500).json({ error: 'Failed to process purchase' });
       }
     }
 
-    if (!userId || leadIds.length === 0) {
-      console.error('❌ Missing userId or leadIds in metadata', meta);
-      return res.status(400).json({ error: 'Missing userId or leadIds' });
-    }
+    // 🎯 Handle Subscription Creation/Update
+    if (userId && tierName && stripeSubId) {
+      try {
+        const stripeSub: Stripe.Subscription = await stripe.subscriptions.retrieve(stripeSubId);
+        const billingInterval = stripeSub.items.data[0]?.price.recurring?.interval;
+        let plan: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' = 'MONTHLY';
+        if (billingInterval === 'year') plan = 'YEARLY';
+        else if (billingInterval === 'month') plan = 'MONTHLY';
 
-    // 3️⃣ Process each purchased lead
-    try {
-      for (const leadId of leadIds) {
-        const lead = await prisma.lead.findUnique({ where: { id: leadId } });
-        if (!lead) continue;
+        const expiresAt = new Date(stripeSub.current_period_end * 1000);
 
-        // upsert purchase record
-        await prisma.leadPurchase.upsert({
-          where: { userId_leadId: { userId, leadId } },
-          update: { status: 'NOT_CONTACTED' },
+        await prisma.subscription.upsert({
+          where: { userId },
+          update: {
+            plan,
+            status: 'ACTIVE',
+            tierName,
+            expiresAt,
+            stripeSubscriptionId: stripeSubId,
+          },
           create: {
             userId,
-            leadId,
-            status: 'NOT_CONTACTED',
-            ...(discountUsedId ? { discountUsedId } : {}),
+            stripeSubscriptionId: stripeSubId,
+            plan,
+            status: 'ACTIVE',
+            tierName,
+            credits: 10,
+            expiresAt,
           },
         });
 
-        // mark lead as unavailable
-        await prisma.lead.update({
-          where: { id: leadId },
-          data: { isAvailable: false },
+        const existingTxn = await prisma.transaction.findFirst({
+          where: { reference: stripeSub.id }
         });
 
-        // log transaction
-        await prisma.transaction.create({
-          data: {
-            userId,
-            amount: lead.price || 0,
-            type: 'LEAD_PURCHASE',
-            status: 'SUCCESS',
-            reference: sessionObj.id,
-          },
-        });
-
-        // clear from cart
-        await prisma.cartItem.deleteMany({ where: { userId, leadId } });
-
-        // send in-app/email notification
-        const { createNotification } = await import('@/lib/notify');
-        await createNotification({
-          userId,
-          type: 'PAYMENT',
-          title: 'Payment Successful',
-          message: `Your payment of PKR ${lead.price?.toLocaleString()} for lead "${lead.name}" was successful.`,
-        });
-
-        // mark discount assignment used if provided
-        if (discountUsedId) {
-          await prisma.discountAssignment.update({
-            where: { id: discountUsedId },
-            data: { used: true },
+        if (!existingTxn) {
+          await prisma.transaction.create({
+            data: {
+              userId,
+              amount: stripeSub.items.data[0]?.price.unit_amount ? stripeSub.items.data[0].price.unit_amount / 100 : 0,
+              type: 'SUBSCRIPTION',
+              status: 'SUCCESS',
+              reference: stripeSub.id,
+            },
           });
         }
-      }
 
-      // 4️⃣ Mark all assignmentIds as used
-      if (assignmentIds.length > 0) {
-        await prisma.discountAssignment.updateMany({
-          where: { id: { in: assignmentIds } },
-          data: { used: true },
-        });
-      }
 
-      // 5️⃣ Fallback: handle any Stripe promotion codes
-      const promoCodeId = sessionObj.total_details?.breakdown?.discounts?.[0]?.promotion_code;
-      if (promoCodeId) {
-        const promo = await stripe.promotionCodes.retrieve(promoCodeId);
-        const matchedDiscount = await prisma.discount.findFirst({
-          where: { stripePromotionId: promo.id },
-          include: { assignedUsers: true },
-        });
-        if (matchedDiscount) {
-          await prisma.discountAssignment.updateMany({
-            where: { discountId: matchedDiscount.id, userId, used: false },
-            data: { used: true },
-          });
-        }
+        console.log(`✅ Subscription created for user ${userId} — ${tierName} (${plan})`);
+        return res.status(200).json({ received: true });
+      } catch (err) {
+        console.error('🚨 Error saving subscription:', err);
+        return res.status(500).json({ error: 'Subscription error' });
       }
-
-      console.log(`✅ Processed purchase for user ${userId}: leads [${leadIds.join(', ')}]`);
-      return res.status(200).json({ received: true });
-    } catch (err: any) {
-      console.error('🚨 Error processing purchase:', err);
-      return res.status(500).json({ error: 'Failed to process purchase' });
     }
   }
 
-  // 6️⃣ Return 200 for other events
   return res.status(200).json({ received: true });
 }
-

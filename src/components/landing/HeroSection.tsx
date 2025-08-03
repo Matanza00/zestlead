@@ -14,7 +14,7 @@ const containerVariants = {
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 30 },
-  visible: (delay: number) => ({
+  show: (delay: number) => ({
     opacity: 1,
     y: 0,
     transition: {
@@ -54,13 +54,13 @@ const HeroSection = () => {
       <div className="absolute inset-0 gradient-hero opacity-50" />
 
       {/* Floating blur elements */}
-      <div className="absolute inset-0">
+      {/* <div className="absolute inset-0">
         <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl animate-float" />
         <div
           className="absolute bottom-20 right-10 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-float"
           style={{ animationDelay: "2s" }}
         />
-      </div>
+      </div> */}
 
       <motion.div
         className="container mx-auto px-4 relative z-10"
@@ -72,6 +72,7 @@ const HeroSection = () => {
           {/* Badge */}
           <motion.div
             variants={fadeUp}
+            animate="show"
             className="inline-flex items-center px-4 py-2 rounded-full gradient-card border border-white/20 text-sm font-medium mb-6"
           >
             🏡 Trusted Real Estate Leads — Updated Daily by Real Humans
@@ -80,8 +81,7 @@ const HeroSection = () => {
           {/* Main heading */}
           <motion.div
             variants={headingContainer}
-            initial="hidden"
-            animate="show"
+
             className="text-5xl md:text-7xl font-bold mb-6 leading-tight text-center"
             >
             <motion.div variants={headingItem}>Discover & Convert</motion.div>
@@ -100,12 +100,14 @@ const HeroSection = () => {
                 </span>
             </motion.div>
             <motion.div variants={headingItem}>in Real Estate</motion.div>
-            </motion.div>
+          </motion.div>
 
 
           {/* Subtitle */}
           <motion.p
             variants={fadeUp}
+            custom={0.2}
+            animate="show"
             className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-2xl mx-auto"
           >
             ZestLead is the #1 platform in the US for buying regularly updated, affordable, and
@@ -115,6 +117,7 @@ const HeroSection = () => {
           {/* CTA Buttons */}
           <motion.div
             variants={fadeUp}
+            custom={0.6}
             className="flex flex-col sm:flex-row flex-wrap justify-center gap-4 mb-12"
           >
             <Button

@@ -1,27 +1,42 @@
-// components/CartCheckoutButton.tsx
 'use client';
 import { useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
-import { useSession } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import toast from 'react-hot-toast';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 export default function CartCheckoutButton({
   cartItems,
+  referralCode,
+  discountPercent = 0,
   onSuccess,
+  className = '',
 }: {
   cartItems: { id: string; lead: { id: string; name: string; price: number; propertyType: string } }[];
+  referralCode?: string;
+  discountPercent?: number;
   onSuccess: () => void;
+  className?: string;
 }) {
   const { data: session } = useSession();
   const userId = session?.user?.id as string;
-  const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const total = cartItems.reduce((sum, it) => sum + it.lead.price, 0);
+  // ✅ Match backend logic: apply discount to first item only
+  const total = cartItems.reduce((sum, item, idx) => {
+    const price = item.lead.price || 0;
+    const isDiscounted = referralCode && discountPercent > 0 && idx === 0;
+    const discount = isDiscounted ? price * (discountPercent / 100) : 0;
+    return sum + (price - discount);
+  }, 0);
 
   const handleCheckout = async () => {
+    if (!session?.user) {
+      toast.error('You need to be logged in to checkout.');
+      return signIn(undefined, { callbackUrl: '/cart' });
+    }
+
     setLoading(true);
     try {
       const res = await fetch('/api/stripe/create-checkout-session', {
@@ -30,9 +45,10 @@ export default function CartCheckoutButton({
         body: JSON.stringify({
           leadIds: cartItems.map((it) => it.lead.id),
           userId,
-          referralCode: referralCode || undefined,
+          referralCode,
         }),
       });
+
       const { id: sessionId, error } = await res.json();
       if (error) throw new Error(error);
       const stripe = await stripePromise;
@@ -46,28 +62,12 @@ export default function CartCheckoutButton({
   };
 
   return (
-    <div className="p-4 border rounded">
-      <div className="mb-3">
-        <input
-          type="text"
-          placeholder="Referral / Discount Code (optional)"
-          value={referralCode}
-          onChange={(e) => setReferralCode(e.target.value)}
-          className="w-full border px-3 py-2 rounded"
-          disabled={loading}
-        />
-      </div>
-      <div className="flex justify-between mb-4">
-        <span>Total:</span>
-        <strong>${total.toFixed(2)}</strong>
-      </div>
-      <button
-        onClick={handleCheckout}
-        disabled={loading}
-        className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
-      >
-        {loading ? 'Redirecting…' : `Pay $${total.toFixed(2)}`}
-      </button>
-    </div>
+    <button
+      onClick={handleCheckout}
+      disabled={loading}
+      className={`inline-flex items-center justify-center text-white bg-green-600 hover:bg-green-700 px-6 py-2 rounded-full font-medium transition ${loading ? 'opacity-70 cursor-not-allowed' : ''} ${className}`}
+    >
+      {loading ? 'Redirecting…' : `Confirm Order – $${total.toFixed(2)}`}
+    </button>
   );
 }
