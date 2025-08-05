@@ -313,16 +313,23 @@ export default function PublicLeadsPage(props) {
                 </div>
                 {/* Action Buttons */}
                 <div className="flex flex-wrap items-center justify-between mt-5 gap-4">
-                  <button
-                    onClick={() => handleOpenDetails(lead.id)}  // ✅ Not just `handleOpenDetails`
-                    className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition"
-                  >
-                    Open Details
-                  </button>
-                  <button className="border border-primary text-primary px-6 py-2 rounded-lg hover:bg-primary/10 transition">
-                    Browse Top Cash Buyers
-                  </button>
-                </div>
+                {/* Open Details just navigates to view page */}
+                <button
+                  onClick={() => router.push(`/leads/view/${lead.id}`)}
+                  className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition"
+                >
+                  Open Details
+                </button>
+
+                {/* Buy Lead triggers handleOpenDetails (cart + auth + redirect) */}
+                <button
+                  onClick={() => handleOpenDetails(lead.id)}
+                  className="border border-primary text-primary px-6 py-2 rounded-lg hover:bg-primary/10 transition"
+                >
+                  Buy Lead
+                </button>
+              </div>
+
               </div>
 
             ))}

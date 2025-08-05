@@ -46,21 +46,7 @@ export default function TransactionsPage(props) {
             />
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button variant="destructive" onClick={() => { setModalType('refund'); setModalOpen(true); }}>
-              <RotateCcw className="mr-2 w-4 h-4" /> Refund User
-            </Button>
-            <Button variant="default" onClick={() => { setModalType('invoice'); setModalOpen(true); }}>
-              <ReceiptText className="mr-2 w-4 h-4" /> Generate Invoice
-            </Button>
-            <Button variant="outline" onClick={() => setShowRefundModal(true)}>
-              <RotateCcw className="mr-2 w-4 h-4" /> Manual Refund
-            </Button>
-            <Button variant="destructive" onClick={() => setBulkRefundOpen(true)}>
-              <RotateCcw className="mr-2 w-4 h-4" /> Bulk Refund
-            </Button>
-            <Button variant="success" onClick={() => setBulkInvoiceOpen(true)}>
-              <FileSearch className="mr-2 w-4 h-4" /> Bulk Invoice
-            </Button>
+
           </div>
         </div>
 

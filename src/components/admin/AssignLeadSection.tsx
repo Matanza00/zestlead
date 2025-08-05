@@ -34,15 +34,37 @@ export default function AssignLeadSection({ userId }: { userId: string }) {
   const [modalSearch, setModalSearch] = useState("");
 
   useEffect(() => {
+  // helper to normalize whatever payload shape
+    function normalizeArrayPayload<T>(payload: any): T[] {
+      if (Array.isArray(payload)) return payload;
+      if (Array.isArray(payload.leads)) return payload.leads;
+      console.error("Unexpected payload:", payload);
+      return [];
+    }
+
     // Load available leads
     fetch("/api/admin/leads")
       .then((res) => res.json())
-      .then((data: Lead[]) => setAvailableLeads(data.filter((l) => l.isAvailable)));
+      .then((payload) => {
+        const arr = normalizeArrayPayload<Lead>(payload);
+        setAvailableLeads(arr.filter((l) => l.isAvailable));
+      })
+      .catch((err) => {
+        console.error("Failed to load available leads:", err);
+      });
+
     // Load assigned leads
     fetch(`/api/admin/users/${userId}/assigned`)
       .then((res) => res.json())
-      .then(setAssignedLeads);
+      .then((payload) => {
+        const arr = normalizeArrayPayload<AssignedLead>(payload);
+        setAssignedLeads(arr);
+      })
+      .catch((err) => {
+        console.error("Failed to load assigned leads:", err);
+      });
   }, [userId]);
+
 
   const propertyOptions = useMemo(
     () => Array.from(new Set(assignedLeads.map((a) => a.lead.propertyType))),

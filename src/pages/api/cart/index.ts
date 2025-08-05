@@ -1,31 +1,41 @@
 // pages/api/cart/index.ts
-import { NextApiRequest, NextApiResponse } from "next";
-import { getServerSession } from "next-auth/next";           // ← server helper
-import { authOptions }     from "@/lib/auth";               // ← your authOptions
-import { prisma } from "@/lib/prisma";
+import { getServerSession } from 'next-auth/next';
+import { authOptions }      from '@/lib/auth';
+import { prisma }           from '@/lib/prisma';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions);
-  if (!session) return res.status(401).json({ error: "Not authenticated" });
-  const userId = session.user.id as string;
+  if (!session?.user?.id) return res.status(401).json({ error: 'Unauthorized' });
 
-  if (req.method === "GET") {
+  const userId = session.user.id;
+
+  if (req.method === 'GET') {
     const items = await prisma.cartItem.findMany({
       where: { userId },
-      include: { lead: { select: { id: true, name: true, price: true, propertyType: true } } },
+      include: { lead: true },
     });
     return res.json(items);
   }
 
-  if (req.method === "POST") {
-    const { leadId } = req.body;
-    const item = await prisma.cartItem.create({
-      data: { userId, leadId },
-      include: { lead: true },
-    });
-    return res.status(201).json(item);
+  if (req.method === 'POST') {
+    const { leadId } = req.body as { leadId: string };
+    try {
+      const item = await prisma.cartItem.upsert({
+        where: {
+          userId_leadId: { userId, leadId }  // your unique compound index
+        },
+        create: { userId, leadId },
+        update: {},                           // no data changes on update
+        include: { lead: true },
+      });
+      return res.status(201).json(item);
+    } catch (err: any) {
+      console.error('Cart upsert error', err);
+      return res.status(500).json({ error: 'Could not add to cart' });
+    }
   }
 
-  res.setHeader("Allow", ["GET", "POST"]);
-  res.status(405).end();
+  res.setHeader('Allow', ['GET','POST']);
+  res.status(405).end(`Method ${req.method} Not Allowed`);
 }

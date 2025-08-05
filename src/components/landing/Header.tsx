@@ -22,7 +22,7 @@ const Header = () => {
 
   const handleDashboardRedirect = () => {
     if (session?.user?.role === 'ADMIN') {
-      router.push('/admin/dashboard');
+      router.push('/admin');
     } else {
       router.push('/user/dashboard');
     }

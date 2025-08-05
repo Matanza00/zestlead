@@ -15,6 +15,7 @@ model User {
   password       String?
   image          String?
   emailVerified  DateTime?
+  interests      Json?      // User's saved lead-interest preferences
   emailNotification Boolean @default(true)
   inAppNotification       Boolean @default(true)
   notifyPayment           Boolean @default(true)
@@ -40,12 +41,11 @@ model User {
   cartItems      CartItem[]
   activity    Activity[]
   supportChats  SupportChat[] 
+  wishlist      Wishlist[]     @relation("UserWishlist")
 
   accounts Account[]
   sessions Session[] 
 }
-
-  
 
 enum Role {
   AGENT
@@ -69,7 +69,6 @@ model Subscription {
   discount     Discount? @relation(fields: [discountId], references: [id])
 }
 
-
 enum SubscriptionPlan {
   MONTHLY
   QUARTERLY
@@ -83,38 +82,48 @@ enum SubscriptionStatus {
 }
 
 model Lead {
-  id             String   @id @default(uuid())
-  leadType       LeadType
-  name           String
-  contact        String
-  email          String?
-  propertyType   String
-  beds           Float
-  baths          Float
-  desireArea     String
-  priceRange     String
-  price          Float?   // ✅ Admin-defined purchase price
-  paymentMethod  String
-  preApproved    Boolean
-  timeline       String
-  hasRealtor     Boolean
-  specialReq     String?
-  notes          String?
-  audioFileUrl   String?
-  isAvailable    Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  deletedAt      DateTime?
+  id                   String           @id @default(uuid())
+  leadType             LeadType
+  name                 String
+  contact              String
+  email                String?
+  propertyType         String
+  beds                 Float?
+  baths                Float?
+  desireArea           String?
+  priceRange           String?
+  price                Float?           // admin‐defined purchase price when lead is bought
 
-  purchases      LeadPurchase[]
-  assignedTo     AssignedLead[]
-  tags           LeadTag[]
-  cartItems      CartItem[]
+  // seller-specific fields
+  askingPrice          Float?
+  marketValue          Float?
+  propertySize         String?          // e.g. "2,794 sqft"
+  propertyAddress      String?          // full address
+  parcelId             String?
+  condition            String?
+  specialRequirements  String?          // your “Special Requirements”
+  
+  paymentMethod        String?
+  preApproved          Boolean          @default(false)
+  hasRealtor           Boolean          @default(false)
+  timeline             String?          // e.g. "1 month" or "Under 4 weeks"
+  appointment          String?          // e.g. "Tomorrow 4–5 PM"
+  notes                String?
+
+  audioFileUrl         String?
+  isAvailable          Boolean          @default(true)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  deletedAt            DateTime?
+
+  purchases            LeadPurchase[]
+  assignedTo           AssignedLead[]
+  tags                 LeadTag[]
+  cartItems            CartItem[]
+  wishlist             Wishlist[] @relation("UserWishlist")
 
   @@index([leadType, propertyType])
 }
-
-
 
 enum LeadType {
   BUYER
@@ -155,7 +164,6 @@ model CartItem {
   @@unique([userId, leadId])
 }
 
-
 model LeadPurchase {
   id              String   @id @default(uuid())
   userId          String
@@ -172,8 +180,6 @@ model LeadPurchase {
 
   @@unique([userId, leadId])
 }
-
-  
 
 enum LeadInteractionStatus {
   NOT_CONTACTED
@@ -194,7 +200,6 @@ model AuditLog {
   admin       User     @relation(fields: [adminId], references: [id])
 }
   
-
 model BlogPost {
   id          String   @id @default(uuid())
   title       String
@@ -208,7 +213,6 @@ model BlogPost {
   deletedAt   DateTime?
 }
   
-
 model LoginLog {
   id         String   @id @default(uuid())
   userId     String
@@ -222,7 +226,6 @@ model LoginLog {
   user       User     @relation(fields: [userId], references: [id])
 }
   
-
 model TwoFactorAuth {
   id        String   @id @default(uuid())
   userId    String   @unique
@@ -235,7 +238,6 @@ model TwoFactorAuth {
   user      User     @relation(fields: [userId], references: [id])
 }
   
-
 model SupportTicket {
   id        String         @id @default(uuid())
   userId    String
@@ -249,7 +251,6 @@ model SupportTicket {
   messages  SupportMessage[]
 }
   
-
 enum TicketStatus {
   OPEN
   IN_PROGRESS
@@ -269,7 +270,6 @@ model SupportMessage {
   sender    User          @relation(fields: [senderId], references: [id])
 }
   
-
 model Discount {
   id            String    @id @default(uuid())
   code          String    @unique
@@ -279,17 +279,17 @@ model Discount {
   expiresAt     DateTime?
   maxUsage      Int?
   createdAt     DateTime  @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
   stackable     Boolean   @default(false)
+  maxCap        Float?     // Maximum discount amount in USD
   stripePromotionId String? // 🔁 add this if syncing with Stripe
   assignedUsers DiscountAssignment[]
   subscriptions Subscription[]
 }
   
-
 model DiscountAssignment {
-  id          String   @id @default(uuid())
+  id         String   @id @default(uuid())
   discountId String
   userId     String
   used       Boolean   @default(false)
@@ -300,7 +300,6 @@ model DiscountAssignment {
   leadPurchases LeadPurchase[] @relation("LeadDiscount")
 }
   
-
 model Transaction {
   id          String   @id @default(uuid())
   userId      String
@@ -315,7 +314,6 @@ model Transaction {
   user        User     @relation(fields: [userId], references: [id])
 }
   
-
 enum TransactionType {
   SUBSCRIPTION
   LEAD_PURCHASE
@@ -407,4 +405,15 @@ model SupportChat {
 enum SenderType {
   USER
   ADMIN
+}
+
+model Wishlist {
+  id        String   @id @default(uuid())
+  user      User     @relation("UserWishlist", fields: [userId], references: [id])
+  userId    String
+  lead      Lead     @relation("UserWishlist", fields: [leadId], references: [id])
+  leadId    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, leadId])
 }

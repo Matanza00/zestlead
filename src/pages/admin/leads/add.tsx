@@ -14,31 +14,58 @@ export default function AddLeadsPage(props) {
   const [leadType, setLeadType] = useState<'BUYER'|'SELLER'>('BUYER')
   const [audioMode, setAudioMode] = useState<'url'|'upload'>('url')
   const [audioFile, setAudioFile] = useState<File|null>(null)
-  type ManualLeadForm = {
+type ManualLeadForm = {
+    // common
+  leadType: 'BUYER' | 'SELLER';
   name: string;
   contact: string;
   email: string;
+  appointment: string;
+  audioFileUrl: string;
+  price: string;
+
+  // BUYER only
   propertyType: string;
   beds: string;
   baths: string;
   desireArea: string;
   priceRange: string;
-  price: string;
   paymentMethod: string;
   preApproved: string;
   timeline: string;
   hasRealtor: string;
   specialReq: string;
   notes: string;
-  audioFileUrl: string;
-  leadType: 'BUYER' | 'SELLER';
-};
+
+  // SELLER only
+  propertyType_s: string;
+  beds_s: string;
+  baths_s: string;
+  propertySize: string;
+  propertyAddress: string;
+  parcelId: string;
+  askingPrice: string;
+  marketValue: string;
+  specialFeatures: string;
+  condition: string;
+}
 
 const [manualForm, setManualForm] = useState<ManualLeadForm>({
-  name: '', contact: '', email: '', propertyType: '', beds: '', baths: '',
-  desireArea: '', priceRange: '', price: '', paymentMethod: '', preApproved: 'false',
-  timeline: '', hasRealtor: 'false', specialReq: '', notes: '', audioFileUrl: '',
-  leadType: 'BUYER',
+    leadType: 'BUYER',
+  name: '', contact: '', email: '', appointment: '', audioFileUrl: '', price: '',
+
+  // BUYER defaults
+  propertyType: '', beds: '', baths: '',
+  desireArea: '', priceRange: '', paymentMethod: '',
+  preApproved: 'false', timeline: '', hasRealtor: 'false',
+  specialReq: '', notes: '',
+
+
+  // SELLER defaults
+  propertyType_s: '', beds_s: '', baths_s: '',
+  propertySize: '', propertyAddress: '', parcelId: '',
+  askingPrice: '', marketValue: '', specialFeatures: '', condition: '',
+
 });
 
   const [csvData, setCsvData] = useState<any[]>([])
@@ -62,44 +89,6 @@ const [manualForm, setManualForm] = useState<ManualLeadForm>({
     })
   }
 
-  // const [mode, setMode] = useState<'manual' | 'csv'>('manual')
-  // const [leadType, setLeadType] = useState<'BUYER'|'SELLER'>('BUYER')
-  // const [audioMode, setAudioMode] = useState<'url' | 'upload'>('url')
-  // const [audioFile, setAudioFile] = useState<File | null>(null)
-  // const [manualForm, setManualForm] = useState<any>({
-  //   name: '', contact:'', email:'', propertyType:'', beds:'', baths:'',
-  //   desireArea:'', priceRange:'', paymentMethod:'', preApproved:'false',
-  //   timeline:'', hasRealtor:'false', specialReq:'', notes:'', audioFileUrl:'',
-  //   price:'', leadType: 'BUYER'
-  // })
-  // const [csvData, setCsvData] = useState<any[]>([])
-  // const [fileName, setFileName] = useState('')
-
-  // const handleManualSubmit = async (e:any) => {
-  //   e.preventDefault()
-  //   let audioUrl = manualForm.audioFileUrl
-  //   if (audioMode==='upload' && audioFile) {
-  //     const fd = new FormData()
-  //     fd.append('file', audioFile)
-  //     const res = await fetch('/api/upload/audio', { method:'POST', body:fd })
-  //     const { url } = await res.json()
-  //     audioUrl = url
-  //   }
-  //   const payload = { ...manualForm, leadType, audioFileUrl: audioUrl }
-  //   await fetch('/api/admin/leads',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)})
-  //     .then(r=> r.ok ? alert('Lead added!') : alert('Error'))
-  // }
-
-  // const handleFileUpload = (e:any) => {
-  //   const f = e.target.files?.[0]
-  //   if (!f) return
-  //   setFileName(f.name)
-  //   Papa.parse(f, {
-  //     header: true,
-  //     skipEmptyLines: true,
-  //     complete: ({ data }) => setCsvData(data as any[])
-  //   })
-  // }
   const handleCsvUpload = async () => {
     await fetch('/api/admin/leads/bulk',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(csvData)})
       .then(r=> r.ok ? alert('Bulk upload success') : alert('Upload failed'))
@@ -108,7 +97,7 @@ const [manualForm, setManualForm] = useState<ManualLeadForm>({
 
   return (
     <AdminLayout>
-      <div className="max-w-3xl px-6 py-8 space-y-6">
+      <div className="max-w-6xl px-6 py-8 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold bg-[radial-gradient(190.64%_199.6%_at_-3.96%_130%,#3A951B_0%,#1CDAF4_100%)]
@@ -150,7 +139,7 @@ const [manualForm, setManualForm] = useState<ManualLeadForm>({
         {/* Manual Entry Form */}
         {mode === 'manual' ? (
           <div className="rounded-lg bg-white shadow overflow-hidden">
-            <form onSubmit={handleManualSubmit} className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <form onSubmit={handleManualSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Lead type selector spans both columns */}
               <div className="col-span-full">
                 <label className="block font-medium text-sm mb-2">Lead Type</label>
@@ -168,21 +157,300 @@ const [manualForm, setManualForm] = useState<ManualLeadForm>({
               </div>
 
               {/* Text inputs */}
-              {[
-                'name','contact','email','propertyType',
-                'beds','baths','desireArea',
-                'priceRange','price'
-              ].map(field => (
-                <div key={field}>
-                  <label className="block text-sm mb-1 capitalize">{field.replace(/([A-Z])/g,' $1')}</label>
+             
+              {/* ── Client Information ── */}
+              <section className="col-span-full space-y-6">
+                <h3 className="text-xl font-semibold">Client Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
+                
+                <div>
+                  <label className="block text-sm mb-1">Name</label>
                   <input
                     type="text"
-                    className="w-full rounded-lg border px-4 py-2 focus:ring-1 focus:ring-green-400"
-                    value={manualForm[field]}
-                    onChange={e => setManualForm(f => ({ ...f, [field]: e.target.value }))}
+                    className="w-full rounded-lg border px-4 py-2"
+                    value={manualForm.name}
+                    onChange={e => setManualForm(f => ({ ...f, name: e.target.value }))}
                   />
                 </div>
-              ))}
+                <div>
+                  <label className="block text-sm mb-1">Contact</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border px-4 py-2"
+                    value={manualForm.contact}
+                    onChange={e => setManualForm(f => ({ ...f, contact: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Email</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border px-4 py-2"
+                    value={manualForm.email}
+                    onChange={e => setManualForm(f => ({ ...f, email: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Appointment</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border px-4 py-2"
+                    value={manualForm.appointment}
+                    onChange={e => setManualForm(f => ({ ...f, appointment: e.target.value }))}
+                  />
+                </div>
+                </div>
+              </section>
+
+              {/* ── Property Information ── */}
+              <section className="col-span-full space-y-4">
+                <h3 className="text-xl font-semibold">Property Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
+                {leadType === 'BUYER' ? (
+                  <>
+                    <div>
+                      <label className="block text-sm mb-1">Type of property</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.propertyType}
+                        onChange={e => setManualForm(f => ({ ...f, propertyType: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Beds</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.beds}
+                        onChange={e => setManualForm(f => ({ ...f, beds: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Baths</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.baths}
+                        onChange={e => setManualForm(f => ({ ...f, baths: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Desire Area</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.desireArea}
+                        onChange={e => setManualForm(f => ({ ...f, desireArea: e.target.value }))}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm mb-1">Type of property</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.propertyType_s}
+                        onChange={e => setManualForm(f => ({ ...f, propertyType_s: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Bedrooms</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.beds_s}
+                        onChange={e => setManualForm(f => ({ ...f, beds_s: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Bathrooms</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.baths_s}
+                        onChange={e => setManualForm(f => ({ ...f, baths_s: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Property Size</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.propertySize}
+                        onChange={e => setManualForm(f => ({ ...f, propertySize: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Property Address</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.propertyAddress}
+                        onChange={e => setManualForm(f => ({ ...f, propertyAddress: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Parcel ID</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.parcelId}
+                        onChange={e => setManualForm(f => ({ ...f, parcelId: e.target.value }))}
+                      />
+                    </div>
+                  </>
+                )}
+                </div>
+              </section>
+
+              {/* ── Price & Timeline ── */}
+              <section className="col-span-full space-y-4">
+                <h3 className="text-xl font-semibold">Price & Timeline</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
+                {leadType === 'BUYER' ? (
+                  <>
+                    <div>
+                      <label className="block text-sm mb-1">Price Range</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.priceRange}
+                        onChange={e => setManualForm(f => ({ ...f, priceRange: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Payment Method</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.paymentMethod}
+                        onChange={e => setManualForm(f => ({ ...f, paymentMethod: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Pre Approved</label>
+                      <select
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.preApproved}
+                        onChange={e => setManualForm(f => ({ ...f, preApproved: e.target.value }))}
+                      >
+                        <option value="false">No</option>
+                        <option value="true">Yes</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Timeline</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.timeline}
+                        onChange={e => setManualForm(f => ({ ...f, timeline: e.target.value }))}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm mb-1">Asking Price</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.askingPrice}
+                        onChange={e => setManualForm(f => ({ ...f, askingPrice: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Market Value</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.marketValue}
+                        onChange={e => setManualForm(f => ({ ...f, marketValue: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Timeline</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.timeline}
+                        onChange={e => setManualForm(f => ({ ...f, timeline: e.target.value }))}
+                      />
+                    </div>
+                  </>
+                )}
+                </div>
+              </section>
+
+              {/* ── Additional Details ── */}
+              <section className="col-span-full space-y-4">
+                <h3 className="text-xl font-semibold">Additional Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
+                {leadType === 'BUYER' ? (
+                  <>
+                    <div>
+                      <label className="block text-sm mb-1">Contract with any realtor</label>
+                      <select
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.hasRealtor}
+                        onChange={e => setManualForm(f => ({ ...f, hasRealtor: e.target.value }))}
+                      >
+                        <option value="false">No</option>
+                        <option value="true">Yes</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Special Requirements</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.specialReq}
+                        onChange={e => setManualForm(f => ({ ...f, specialReq: e.target.value }))}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm mb-1">Currently Working with a Realtor</label>
+                      <select
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.hasRealtor}
+                        onChange={e => setManualForm(f => ({ ...f, hasRealtor: e.target.value }))}
+                      >
+                        <option value="false">No</option>
+                        <option value="true">Yes</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Special Features</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.specialFeatures}
+                        onChange={e => setManualForm(f => ({ ...f, specialFeatures: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Condition</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border px-4 py-2"
+                        value={manualForm.condition}
+                        onChange={e => setManualForm(f => ({ ...f, condition: e.target.value }))}
+                      />
+                    </div>
+                  </>
+                )}
+                
+                
+                </div>
+              </section>
+
+            
 
               {/* Conditional seller-only */}
               {leadType === 'BUYER' && (
@@ -264,12 +532,28 @@ const [manualForm, setManualForm] = useState<ManualLeadForm>({
                 />
               </div>
 
+              {/* ── Lead Price ── */}
+            <section className="col-span-full space-y-4">
+              <h3 className="text-xl font-semibold">Lead Price</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm mb-1">Price</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border px-4 py-2"
+                    value={manualForm.price}
+                    onChange={e => setManualForm(f => ({ ...f, price: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </section>
+
               {/* Submit button spans both */}
               <div className="col-span-full text-right">
                 <Button
                   type="submit"
                   size="lg"
-                  className="px-8"
+                  className="px-8 text-white font-semibold"
                   style={{
                     backgroundImage:
                       'radial-gradient(187.72% 415.92% at 52.87% 247.14%,#3A951B 0%,#1CDAF4 100%)'

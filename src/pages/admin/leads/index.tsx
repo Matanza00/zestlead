@@ -8,6 +8,7 @@ import StripeCheckoutButton from '@/components/StripeCheckoutButton'
 import { useSession } from 'next-auth/react'
 import { Search as SearchIcon, Tag, DollarSign, UserPlus, Eye, Edit2, FilePlus } from 'lucide-react'
 import { Button } from '@/components/ui2/button'
+import { useRouter } from 'next/router'
 
 type Lead = {
   id: string
@@ -24,10 +25,16 @@ type LeadsPageProps = {
   // add specific props here, e.g., leads: Lead[]
 };
 
-const LeadsPage = (props: LeadsPageProps) => {
+const LeadsPage = (props) => {
+  const router = useRouter()
   const { data: session } = useSession()
   const [leads, setLeads] = useState<Lead[]>([])
-  const [loading, setLoading] = useState(true)
+  const [totalCount, setTotalCount] = useState(0);
+  const pageSize = 100;  // same default you send to the API
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const [page, setPage]       = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [loading, setLoading] = useState(false)   // flip to false initially
   const [selected, setSelected] = useState<string[]>([])
   const [bulkTag, setBulkTag] = useState('')
   const [bulkPrice, setBulkPrice] = useState('')
@@ -41,16 +48,27 @@ const LeadsPage = (props: LeadsPageProps) => {
   })
   const debounceRef = useRef<NodeJS.Timeout|null>(null)
 
-  // Fetch leads whenever filters change
-  useEffect(() => {
+  const fetchPage = async (pageNum = 1) => {
     setLoading(true)
     const q = new URLSearchParams()
-    Object.entries(filters).forEach(([k,v]) => v && q.append(k,v))
-    fetch(`/api/admin/leads?${q.toString()}`)
-      .then(r => r.json())
-      .then((data: Lead[]) => setLeads(data))
-      .finally(() => setLoading(false))
-  }, [filters])
+    q.set('page', String(pageNum))
+    q.set('pageSize', '100')
+    Object.entries(filters).forEach(([k, v]) => v && q.set(k, v))
+    const res = await fetch(`/api/admin/leads?${q.toString()}`)
+    const { leads: items, hasMore } = await res.json()
+    // setLeads(prev => pageNum === 1 ? items : [...prev, ...items])
+    setLeads(items)
+    setHasMore(hasMore)
+    setPage(pageNum)
+    setLoading(false)
+    setTotalCount(totalCount);
+    setPage(pageNum);
+  }
+
+  // fire page load on mount and whenever filters change:
+  useEffect(() => {
+    fetchPage(1)
+  }, [filters, activeTab])
 
   // Handlers
   const toggleSelect = (id: string) =>
@@ -234,18 +252,19 @@ const LeadsPage = (props: LeadsPageProps) => {
               </button>
             )
           })}
-          <Button asChild size="sm" variant="outline"
-                  className="whitespace-nowrap text-white"
-                  style={{
-                    backgroundImage:
-                      'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)'
-                  }}
-                >
-                  <Link href="/admin/leads/add" >
-                    <FilePlus className="h-5 w-5 " />
-                    Add Lead
-                  </Link>
-                </Button>
+          <Button
+            onClick={() => router.push('/admin/leads/add')}
+            size="sm"
+            variant="outline"
+            className="whitespace-nowrap text-white"
+            style={{
+              backgroundImage:
+                'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)'
+            }}
+          >
+            <FilePlus className="h-5 w-5" />
+            Add Lead
+          </Button>  
         </div>
 
         {/* Content */}
@@ -274,7 +293,7 @@ const LeadsPage = (props: LeadsPageProps) => {
                           }}
                         />
                       </th>
-                      {['Name','Contact','Email','Type','Property','Status','Price','Tags','Actions'].map((h,i) => (
+                      {['Name','Contact','Email','Type','Property','Status','Lead Price','Tags','Actions'].map((h,i) => (
                         <th
                           key={h}
                           className={`p-3 text-left ${i===8?'text-center':''}`}
@@ -364,6 +383,23 @@ const LeadsPage = (props: LeadsPageProps) => {
                 </table>
               </div>
             )}
+             {/* Pagination */}
+            {/* <div className="flex justify-center space-x-2 mt-4">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pNum) => (
+                <button
+                  key={pNum}
+                  type="button"
+                  onClick={() => fetchPage(pNum)}
+                  className={`px-3 py-1 rounded ${
+                    pNum === page
+                      ? 'bg-green-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300'
+                  }`}
+                >
+                  {pNum}
+                </button>
+              ))}
+            </div> */}
           </div>
 
           {/* Right = Stats */}
@@ -374,13 +410,13 @@ const LeadsPage = (props: LeadsPageProps) => {
                   'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)'
               }}
             >
-              <p className="text-sm">Total Leads</p>
+              <h1 className="text-sm">Total Leads</h1>
               <h3 className="text-2xl font-semibold">{leads.length}</h3>
             </div>
             <div className="p-4 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 text-white shadow-sm">
-              <p className="text-sm">
+              <h2 className="text-sm">
                 {activeTab==='BUYER' ? 'Buyer Leads' : 'Seller Leads'}
-              </p>
+              </h2>
               <h3 className="text-2xl font-semibold">
                 {(activeTab==='BUYER' ? buyer : seller).length}
               </h3>

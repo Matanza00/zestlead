@@ -1,20 +1,34 @@
 'use client';
+import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import CombinedNavSidebar from '@/components/CombinedNavbar';
 import CartCheckoutButton from '@/components/CartCheckoutButton';
 import { ShoppingCart, ArrowLeft, Check } from 'lucide-react';
 
-export default function CartPage() {
-  const [items, setItems] = useState<
-    { id: string; lead: { id: string; name: string; price: number; propertyType: string; desireArea: string; priceRange: string } }[]
-  >([]);
+type CartItem = {
+  id: string;
+  lead: {
+    id: string;
+    name: string;
+    price: number;
+    propertyType: string;
+    desireArea: string;
+    priceRange: string;
+  };
+};
+
+export default function CartPage(props) {
+  const router = useRouter();
+  const [items, setItems] = useState<CartItem[]>([]);
   const [promo, setPromo] = useState('');
   const [promoValid, setPromoValid] = useState(false);
-  const [discountedIds, setDiscountedIds] = useState<Set<string>>(new Set());
   const [discountPercent, setDiscountPercent] = useState(0);
+  // now possibly null if unlimited
+  const [discountMaxCap, setDiscountMaxCap] = useState<number | null>(null);
+  const [discountedIds, setDiscountedIds] = useState<Set<string>>(new Set());
 
-
+  // fetch cart
   const fetchCart = async () => {
     try {
       const res = await fetch('/api/cart');
@@ -25,32 +39,91 @@ export default function CartPage() {
     }
   };
 
+  // auto-add via query param
+  const leadIdParam = Array.isArray(router.query.leadId)
+    ? router.query.leadId[0]
+    : router.query.leadId;
+  useEffect(() => {
+    if (leadIdParam) {
+      fetch('/api/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: leadIdParam }),
+      }).then(fetchCart);
+    }
+  }, [leadIdParam]);
+
   useEffect(() => {
     fetchCart();
   }, []);
 
-  const remove = async (id: string) => {
-    await fetch(`/api/cart/${id}`, { method: 'DELETE' });
-    setItems((prev) => prev.filter((it) => it.id !== id));
-  };
-
-  const applyPromoToLead = (id: string) => {
-    if (promo === 'ZEST30') {
-      setDiscountedIds(prev => new Set([...prev, id]));
-      toast.success('30% Discount Applied');
+  // validate promo code
+  const validatePromo = async (code: string) => {
+    if (!code) {
+      setPromoValid(false);
+      setDiscountPercent(0);
+      setDiscountMaxCap(null);
+      return;
+    }
+    try {
+      const res = await fetch('/api/discount/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      setPromoValid(data.valid);
+      if (data.valid) {
+        setDiscountPercent(data.discountPercentage);
+        // data.maxCap could be number or null
+        setDiscountMaxCap(
+          typeof data.maxCap === 'number' ? data.maxCap : null
+        );
+      } else {
+        setDiscountPercent(0);
+        setDiscountMaxCap(null);
+      }
+    } catch {
+      setPromoValid(false);
+      setDiscountPercent(0);
+      setDiscountMaxCap(null);
     }
   };
 
-  const calculateTotal = () => {
-  const applyDiscount = promoValid && discountPercent > 0;
-  return items.reduce((acc, item, idx) => {
-    const price = item.lead.price || 0;
-    const isDiscounted = applyDiscount && idx === 0; // 1 discount per user/lead
-    const discount = isDiscounted ? price * (discountPercent / 100) : 0;
-    return acc + (price - discount);
-  }, 0);
-};
+  const onPromoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const code = e.target.value.trim().toUpperCase();
+    setPromo(code);
+    validatePromo(code);
+  };
 
+  // apply discount to a specific cart-item
+  const applyPromoToLead = (id: string, price: number) => {
+    if (!promoValid || discountPercent <= 0) return;
+    const raw = price * (discountPercent / 100);
+    const discountAmt =
+      discountMaxCap != null ? Math.min(raw, discountMaxCap) : raw;
+
+    if (discountMaxCap != null && raw > discountMaxCap) {
+      toast(`Cap applied at $${discountMaxCap.toFixed(2)}`);
+    } else {
+      toast.success(`${discountPercent}% Discount Applied`);
+    }
+
+    setDiscountedIds(prev => new Set(prev).add(id));
+  };
+
+  // compute total
+  const calculateTotal = () =>
+    items.reduce((sum, { id, lead }) => {
+      const price = lead.price;
+      if (discountedIds.has(id)) {
+        const raw = price * (discountPercent / 100);
+        const discountAmt =
+          discountMaxCap != null ? Math.min(raw, discountMaxCap) : raw;
+        return sum + (price - discountAmt);
+      }
+      return sum + price;
+    }, 0);
 
   return (
     <CombinedNavSidebar>
@@ -61,20 +134,31 @@ export default function CartPage() {
         </div>
         <p className="text-gray-500 mb-6">Order ID #2423</p>
 
+        {/* Details */}
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-4">Details</h2>
           <div className="grid grid-cols-5 text-sm text-gray-500 font-semibold mb-2">
             <span>Name</span>
             <span>Area</span>
             <span>Type</span>
-            <span>Property Price</span>
+            <span>Price Range</span>
             <span className="text-right">Price</span>
           </div>
 
           {items.map(({ id, lead }) => {
+            const original = lead.price;
             const isDiscounted = discountedIds.has(id);
-            const originalPrice = lead.price || 0;
-            const finalPrice = isDiscounted ? originalPrice * 0.7 : originalPrice;
+            let final = original;
+            let discountAmt = 0;
+
+            if (isDiscounted) {
+              const raw = original * (discountPercent / 100);
+              discountAmt =
+                discountMaxCap != null
+                  ? Math.min(raw, discountMaxCap)
+                  : raw;
+              final = original - discountAmt;
+            }
 
             return (
               <div
@@ -88,22 +172,33 @@ export default function CartPage() {
                 <div className="text-right">
                   {isDiscounted ? (
                     <>
-                      <span className="line-through text-gray-400 text-sm mr-1">${originalPrice.toFixed(0)}</span>
-                      <span className="text-green-600 font-semibold">${finalPrice.toFixed(0)}</span>
-                      <p className="text-green-500 text-xs">30% Off</p>
+                      <span className="line-through text-gray-400 mr-1">
+                        ${original.toFixed(2)}
+                      </span>
+                      <span className="text-green-600 font-semibold">
+                        ${final.toFixed(2)}
+                      </span>
+                      <p className="text-green-500 text-xs">
+                        You saved ${discountAmt.toFixed(2)}
+                      </p>
+                      {discountMaxCap != null && discountAmt === discountMaxCap && (
+                        <p className="text-green-500 text-[10px]">
+                          (Cap of ${discountMaxCap.toFixed(2)} applied)
+                        </p>
+                      )}
                     </>
                   ) : (
                     <>
-                      <span className="font-semibold text-gray-800">${originalPrice.toFixed(0)}</span>
-                      {promo === 'ZEST30' && (
-                        <div>
-                          <button
-                            onClick={() => applyPromoToLead(id)}
-                            className="text-green-600 text-xs hover:underline ml-2"
-                          >
-                            Apply 30% Discount
-                          </button>
-                        </div>
+                      <span className="font-semibold text-gray-800">
+                        ${original.toFixed(2)}
+                      </span>
+                      {promoValid && (
+                        <button
+                          onClick={() => applyPromoToLead(id, original)}
+                          className="text-green-600 text-xs hover:underline ml-2"
+                        >
+                          Apply {discountPercent}% Off
+                        </button>
                       )}
                     </>
                   )}
@@ -113,58 +208,46 @@ export default function CartPage() {
           })}
         </div>
 
+        {/* Summary */}
         <div className="text-right text-base font-semibold text-gray-800 mb-6">
-          Total: <span className="text-green-700">${calculateTotal().toFixed(0)}</span>
-          {promoValid && discountPercent > 0 && (
-          <p className="text-sm text-green-500">
-            Promo Applied: {discountPercent}% off {items.length === 1 ? 'this lead' : 'the first lead'}
+          Total:{' '}
+          <span className="text-green-700">
+            ${calculateTotal().toFixed(2)}
+          </span>
+          <p className="text-sm text-gray-500 mt-1">
+            {items.length} Lead{items.length > 1 && 's'}
           </p>
-        )}
-          <p className="text-sm text-gray-500 mt-1">{items.length} Leads</p>
         </div>
-        
 
-
+        {/* Promo Input */}
         <div className="mb-6 max-w-lg">
           <input
             type="text"
             value={promo}
-            onChange={async (e) => {
-              const code = e.target.value.trim();
-              setPromo(code);
-
-              if (!code) return setPromoValid(false);
-
-              try {
-                const res = await fetch('/api/discount/validate', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ code }),
-                });
-                const data = await res.json();
-                setPromoValid(data.valid);
-                setDiscountPercent(data.valid ? data.discountPercentage : 0);
-              } catch {
-                setPromoValid(false);
-              }
-            }}
-
+            onChange={onPromoChange}
             placeholder="Add a discount/promo code"
             className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Note: You can only apply the discount/promo code on a single lead.
+            Note: one discount per lead.
           </p>
           {promoValid && (
             <div className="flex items-center text-green-600 text-sm mt-1 gap-1">
               <Check className="w-4 h-4" />
-              Discount Code is valid
+              Code valid: {discountPercent}% off up to{' '}
+              {discountMaxCap != null
+                ? `$${discountMaxCap.toFixed(2)}`
+                : '∞'}
             </div>
           )}
         </div>
 
+        {/* Actions */}
         <div className="flex flex-wrap gap-4 justify-between items-center">
-          <button className="bg-gray-100 text-gray-800 text-sm px-4 py-2 rounded-full hover:bg-gray-200 flex items-center gap-2">
+          <button
+            onClick={() => router.push('/user/leads')}
+            className="bg-gray-100 text-gray-800 text-sm px-4 py-2 rounded-full hover:bg-gray-200 flex items-center gap-2"
+          >
             <ArrowLeft className="w-4 h-4" />
             Add More Leads
           </button>
@@ -173,6 +256,7 @@ export default function CartPage() {
             cartItems={items}
             referralCode={promoValid ? promo : undefined}
             discountPercent={promoValid ? discountPercent : 0}
+            discountMaxCap={promoValid ? discountMaxCap : null}
             onSuccess={() => {
               setItems([]);
               setDiscountedIds(new Set());

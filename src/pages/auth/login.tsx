@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { signIn, getSession } from 'next-auth/react';
@@ -5,8 +7,15 @@ import Image from 'next/image';
 import { Button } from '@/components/ui2/button';
 import Link from 'next/link';
 
-export default function LoginPage() {
+export default function LoginPage(props) {
   const router = useRouter();
+
+  // 1) Grab and decode callbackUrl
+  const rawCb = Array.isArray(router.query.callbackUrl)
+    ? router.query.callbackUrl[0]
+    : (router.query.callbackUrl as string) || '';
+  const callbackUrl = rawCb ? decodeURIComponent(rawCb) : '';
+
   const [form, setForm] = useState({ email: '', password: '' });
   const [otp, setOtp] = useState('');
   const [show2FA, setShow2FA] = useState(false);
@@ -15,10 +24,13 @@ export default function LoginPage() {
   const handleLogin = async (e: any) => {
     e.preventDefault();
     setLoading(true);
+
+    // 2) Sign in with credentials, no automatic redirect
     const res = await signIn('credentials', {
       redirect: false,
       email: form.email,
       password: form.password,
+      callbackUrl: callbackUrl || '/'
     });
 
     if (res?.error) {
@@ -27,11 +39,10 @@ export default function LoginPage() {
       return;
     }
 
-    const session = await getSession();
-    if (session?.user?.twoFactorPending) {
-      setShow2FA(true);
-    } else {
-      redirectBasedOnRole(session?.user?.role);
+    if (res?.ok) {
+      // NextAuth sets res.url to your callbackUrl
+      router.push(res.url || '/');
+      return;
     }
 
     setLoading(false);
@@ -45,18 +56,16 @@ export default function LoginPage() {
     });
     const result = await res.json();
     if (result.success) {
-      const session = await getSession();
-      redirectBasedOnRole(session?.user?.role);
+      router.push(callbackUrl || '/');
     } else {
       alert('Invalid 2FA code');
     }
   };
 
-  const redirectBasedOnRole = (role?: string) => {
-    if (role === 'ADMIN') router.push('/admin');
-    else if (role === 'AGENT') router.push('/user');
-    else router.push('/');
-  };
+  // 3) Build Sign-up link with the same callback
+  const signupHref = callbackUrl
+    ? `/auth/signup?callbackUrl=${encodeURIComponent(callbackUrl)}`
+    : '/auth/signup';
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900 flex justify-center">
@@ -64,19 +73,21 @@ export default function LoginPage() {
         <div className="lg:w-1/2 xl:w-5/12 p-6 sm:p-12">
           <div>
             <h1 className="pt-8 text-center text-7xl font-bold tracking-tight align-center
-            [font-family:'Plus\ Jakarta\ Sans'] font-semibold
-            bg-[radial-gradient(115.64%_179.6%_at_-3.96%_130%,#82E15A_0%,#0A7894_100%)]
-            bg-clip-text [-webkit-background-clip:text]
-            text-transparent [-webkit-text-fill-color:transparent] text-shadow-lg/5
-          ">
-            ZestLeads
+              [font-family:'Plus\ Jakarta\ Sans'] font-semibold
+              bg-[radial-gradient(115.64%_179.6%_at_-3.96%_130%,#82E15A_0%,#0A7894_100%)]
+              bg-clip-text [-webkit-background-clip:text]
+              text-transparent [-webkit-text-fill-color:transparent] text-shadow-lg/5
+            ">
+              ZestLeads
             </h1>
           </div>
           <div className="mt-12 flex flex-col items-center">
             <div className="w-full flex-1 mt-8">
               <div className="flex flex-col items-center ">
                 <button
-                  onClick={() => signIn('google')}
+                  onClick={() =>
+                    signIn('google', { callbackUrl: callbackUrl || '/' })
+                  }
                   className="w-full max-w-xs font-bold shadow-xl rounded-lg py-3 bg-green-100/10 text-gray-800 flex items-center justify-center transition-all duration-300 ease-in-out focus:outline-none hover:shadow"
                 >
                   <div className="bg-white p-2 rounded-full">
@@ -117,6 +128,7 @@ export default function LoginPage() {
                 />
                 <button
                   type="submit"
+                  disabled={loading}
                   className="z-10 mt-5 tracking-wide font-semibold bg-[radial-gradient(115.64%_219.6%_at_-3.96%_130%,#82E15A_0%,#0A7894_100%)] text-white w-full py-4 rounded-lg shadow-xl/15 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none"
                 >
                   <svg className="w-6 h-6 -ml-2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -126,31 +138,32 @@ export default function LoginPage() {
                   </svg>
                   <span className="ml-3">{loading ? 'Logging in...' : 'Sign In'}</span>
                 </button>
+
                 <p className="mt-6 text-xs text-gray-600 text-center">
                   By signing in, you agree to ZestLead’s
-                  <Link href="/terms" className='border-b border-gray-500 ml-1'> Terms of Service </Link> and
-                  <Link href="/privacy" className='border-b border-gray-500 ml-1'> Privacy Policy </Link>.
+                  <Link href="/terms" className="border-b border-gray-500 ml-1">
+                    Terms of Service
+                  </Link> and
+                  <Link href="/privacy" className="border-b border-gray-500 ml-1">
+                    Privacy Policy
+                  </Link>.
                 </p>
 
                 <div className="text-sm text-center mt-4">
-                  Don’t have an account?
-                  <span
-                    onClick={() => router.push('/auth/signup')}
-                    className="ml-1 text-primary hover:underline cursor-pointer"
-                  >
+                  Don’t have an account?{' '}
+                  <Link href={signupHref} className="ml-1 text-primary hover:underline">
                     Sign up
-                  </span>
+                  </Link>
                 </div>
-
               </form>
             </div>
           </div>
         </div>
 
+        {/* Right-side illustration */}
         <div className="flex-1 bg-green-100 text-center hidden lg:flex">
-          <div
-            className="m-12 xl:m-16 w-full bg-contain bg-center bg-no-repeat">
-              <Image
+          <div className="m-12 xl:m-16 w-full bg-contain bg-center bg-no-repeat">
+            <Image
               src="/auth/login.svg"
               alt="ZestLead Login Visual"
               width={2500}
@@ -158,11 +171,11 @@ export default function LoginPage() {
               priority
               className="w-full h-auto object-contain"
             />
-            </div>
+          </div>
         </div>
       </div>
 
-      {/* 2FA Modal */}
+      {/* Two-Factor Modal */}
       {show2FA && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded shadow-lg w-full max-w-sm">
@@ -187,7 +200,6 @@ export default function LoginPage() {
           </div>
         </div>
       )}
-      
     </div>
   );
 }
