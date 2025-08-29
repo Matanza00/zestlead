@@ -1,10 +1,10 @@
 'use client';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import CombinedNavSidebar from '@/components/CombinedNavbar';
 import CartCheckoutButton from '@/components/CartCheckoutButton';
-import { ShoppingCart, ArrowLeft, Check } from 'lucide-react';
+import { ShoppingCart, ArrowLeft, Check, Sparkles, Copy, Percent, Clock } from 'lucide-react';
 
 type CartItem = {
   id: string;
@@ -18,15 +18,38 @@ type CartItem = {
   };
 };
 
+type AssignedDiscount = {
+  code: string;
+  percentage: number;
+  expiresAt?: string | null;
+  active?: boolean;
+  remaining?: number | null;   // optional, if your API provides remaining uses
+  maxCap?: number | null;      // optional, if your API provides a per-use cap
+};
+// Show compact label for subscription codes
+const getDiscountLabel = (d: { code: string }) => {
+  const c = (d.code || '').toUpperCase();
+  if (c.startsWith('GROWTH-')) return 'GROWTH';
+  if (c.startsWith('PRO-')) return 'PRO';
+  return c; // other discounts show the full code
+};
+
+
 export default function CartPage(props) {
   const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
+
+  // promo (typed or selected)
   const [promo, setPromo] = useState('');
   const [promoValid, setPromoValid] = useState(false);
   const [discountPercent, setDiscountPercent] = useState(0);
   // now possibly null if unlimited
   const [discountMaxCap, setDiscountMaxCap] = useState<number | null>(null);
   const [discountedIds, setDiscountedIds] = useState<Set<string>>(new Set());
+
+  // assigned discounts (fetched)
+  const [assigned, setAssigned] = useState<AssignedDiscount[]>([]);
+  const [loadingAssigned, setLoadingAssigned] = useState(false);
 
   // fetch cart
   const fetchCart = async () => {
@@ -43,6 +66,7 @@ export default function CartPage(props) {
   const leadIdParam = Array.isArray(router.query.leadId)
     ? router.query.leadId[0]
     : router.query.leadId;
+
   useEffect(() => {
     if (leadIdParam) {
       fetch('/api/cart', {
@@ -51,10 +75,55 @@ export default function CartPage(props) {
         body: JSON.stringify({ leadId: leadIdParam }),
       }).then(fetchCart);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadIdParam]);
 
   useEffect(() => {
     fetchCart();
+  }, []);
+
+  // --- Assigned discounts fetcher ---
+  // Tries a few likely endpoints; uses the first that returns an array.
+  // Replace your current fetchAssignedDiscounts() with this:
+const fetchAssignedDiscounts = async () => {
+  setLoadingAssigned(true);
+  try {
+    const r = await fetch('/api/discount/validate'); // GET returns assigned codes
+    if (r.ok) {
+      const data = await r.json();
+      // normalize just in case
+      const norm = (Array.isArray(data) ? data : []).map((d: any) => ({
+        code: (d.code || '').toString().toUpperCase(),
+        percentage: Number(d.percentage ?? d.discountPercentage ?? 0),
+        expiresAt: d.expiresAt ?? null,
+        active: typeof d.active === 'boolean' ? d.active : true,
+        remaining:
+          typeof d.remaining === 'number'
+            ? d.remaining
+            : typeof d.remainingUses === 'number'
+            ? d.remainingUses
+            : null,
+        maxCap:
+          typeof d.maxCap === 'number'
+            ? d.maxCap
+            : typeof d.cap === 'number'
+            ? d.cap
+            : null,
+      }));
+      setAssigned(norm);
+    } else {
+      setAssigned([]);
+    }
+  } catch {
+    setAssigned([]);
+  } finally {
+    setLoadingAssigned(false);
+  }
+};
+
+
+  useEffect(() => {
+    fetchAssignedDiscounts();
   }, []);
 
   // validate promo code
@@ -76,9 +145,7 @@ export default function CartPage(props) {
       if (data.valid) {
         setDiscountPercent(data.discountPercentage);
         // data.maxCap could be number or null
-        setDiscountMaxCap(
-          typeof data.maxCap === 'number' ? data.maxCap : null
-        );
+        setDiscountMaxCap(typeof data.maxCap === 'number' ? data.maxCap : null);
       } else {
         setDiscountPercent(0);
         setDiscountMaxCap(null);
@@ -100,8 +167,7 @@ export default function CartPage(props) {
   const applyPromoToLead = (id: string, price: number) => {
     if (!promoValid || discountPercent <= 0) return;
     const raw = price * (discountPercent / 100);
-    const discountAmt =
-      discountMaxCap != null ? Math.min(raw, discountMaxCap) : raw;
+    const discountAmt = discountMaxCap != null ? Math.min(raw, discountMaxCap) : raw;
 
     if (discountMaxCap != null && raw > discountMaxCap) {
       toast(`Cap applied at $${discountMaxCap.toFixed(2)}`);
@@ -109,21 +175,58 @@ export default function CartPage(props) {
       toast.success(`${discountPercent}% Discount Applied`);
     }
 
-    setDiscountedIds(prev => new Set(prev).add(id));
+    setDiscountedIds((prev) => new Set(prev).add(id));
   };
 
   // compute total
-  const calculateTotal = () =>
-    items.reduce((sum, { id, lead }) => {
-      const price = lead.price;
-      if (discountedIds.has(id)) {
-        const raw = price * (discountPercent / 100);
-        const discountAmt =
-          discountMaxCap != null ? Math.min(raw, discountMaxCap) : raw;
-        return sum + (price - discountAmt);
-      }
-      return sum + price;
-    }, 0);
+  const total = useMemo(
+    () =>
+      items.reduce((sum, { id, lead }) => {
+        const price = lead.price;
+        if (discountedIds.has(id)) {
+          const raw = price * (discountPercent / 100);
+          const discountAmt =
+            discountMaxCap != null ? Math.min(raw, discountMaxCap) : raw;
+          return sum + (price - discountAmt);
+        }
+        return sum + price;
+      }, 0),
+    [items, discountedIds, discountPercent, discountMaxCap]
+  );
+
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Code copied');
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+
+  const now = Date.now();
+  const usableAssigned = useMemo(
+    () =>
+      assigned
+        .filter((d) => d.code && d.percentage > 0)
+        .filter((d) => d.active !== false)
+        .filter((d) => {
+          if (!d.expiresAt) return true;
+          const t = new Date(d.expiresAt).getTime();
+          return !Number.isNaN(t) ? t >= now : true;
+        }),
+    [assigned, now]
+  );
+
+  const formatExpiry = (iso?: string | null) => {
+    if (!iso) return 'No expiry';
+    try {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return 'No expiry';
+      return d.toLocaleDateString();
+    } catch {
+      return 'No expiry';
+    }
+  };
 
   return (
     <CombinedNavSidebar>
@@ -154,9 +257,7 @@ export default function CartPage(props) {
             if (isDiscounted) {
               const raw = original * (discountPercent / 100);
               discountAmt =
-                discountMaxCap != null
-                  ? Math.min(raw, discountMaxCap)
-                  : raw;
+                discountMaxCap != null ? Math.min(raw, discountMaxCap) : raw;
               final = original - discountAmt;
             }
 
@@ -212,7 +313,7 @@ export default function CartPage(props) {
         <div className="text-right text-base font-semibold text-gray-800 mb-6">
           Total:{' '}
           <span className="text-green-700">
-            ${calculateTotal().toFixed(2)}
+            ${total.toFixed(2)}
           </span>
           <p className="text-sm text-gray-500 mt-1">
             {items.length} Lead{items.length > 1 && 's'}
@@ -235,9 +336,76 @@ export default function CartPage(props) {
             <div className="flex items-center text-green-600 text-sm mt-1 gap-1">
               <Check className="w-4 h-4" />
               Code valid: {discountPercent}% off up to{' '}
-              {discountMaxCap != null
-                ? `$${discountMaxCap.toFixed(2)}`
-                : '∞'}
+              {discountMaxCap != null ? `$${discountMaxCap.toFixed(2)}` : '∞'}
+            </div>
+          )}
+        </div>
+
+        {/* Assigned Discounts */}
+        <div className="mb-10">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-4 h-4 text-green-700" />
+            <h3 className="font-semibold">Your Discount Codes</h3>
+          </div>
+
+          {loadingAssigned ? (
+            <p className="text-sm text-gray-500">Loading your discounts…</p>
+          ) : usableAssigned.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No active discounts available.
+            </p>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-3">
+              {usableAssigned.map((d) => (
+                <div
+                  key={`${d.code}-${d.expiresAt ?? 'noexp'}`}
+                  className="border rounded-lg px-4 py-3 flex items-start justify-between"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                        {getDiscountLabel(d)}
+                      </span>
+
+                      <span className="inline-flex items-center gap-1 text-green-700 text-xs font-semibold">
+                        <Percent className="w-3 h-3" />
+                        {d.percentage} OFF
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                      <Clock className="w-3 h-3" />
+                      <span>Valid till: {formatExpiry(d.expiresAt)}</span>
+                      {typeof d.remaining === 'number' && (
+                        <span>• Uses left: {d.remaining}</span>
+                      )}
+                      {typeof d.maxCap === 'number' && (
+                        <span>• Cap: ${d.maxCap.toFixed(2)}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => copy(d.code)}
+                      className="text-gray-500 hover:text-gray-700"
+                      title="Copy code"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const code = d.code.toUpperCase();
+                        setPromo(code);
+                        validatePromo(code);
+                        toast.success('Code applied. Now click “Apply … Off” on the lead you want.');
+                      }}
+                      className="text-green-700 text-sm font-medium hover:underline"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

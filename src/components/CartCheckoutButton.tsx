@@ -62,6 +62,27 @@ export default function CartCheckoutButton({
         }),
       });
 
+      // New: friendly handling of buy-delay rejections
+      if (res.status === 409) {
+        const data = await res.json().catch(() => ({}));
+        const blocked = (data?.blocked || []) as Array<{
+          id: string; name?: string; eligibleAt: string; waitMinutes: number;
+        }>;
+        if (blocked.length) {
+          blocked.forEach(b => {
+            const item = cartItems.find(ci => ci.lead.id === b.id);
+            const name = item?.lead?.name || b.name || b.id;
+            const when = new Date(b.eligibleAt);
+            const timeStr = when.toLocaleString();
+            toast.error(`${name} is eligible to buy at ${timeStr}`);
+          });
+        } else {
+          toast.error(data?.message || 'Some leads are not eligible to buy yet.');
+        }
+        setLoading(false);
+        return;
+      }
+
       const { id: sessionId, error } = await res.json();
       if (error) throw new Error(error);
 

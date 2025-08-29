@@ -80,7 +80,7 @@ export default function SubscriptionPage(props) {
       gradient: 'from-orange-500 to-yellow-500'
     },
     {
-      name: 'Enterprise Team',
+      name: 'PRO Team',
       monthly: 499,
       description: 'Built for brokerages managing teams and high volume.',
       features: [

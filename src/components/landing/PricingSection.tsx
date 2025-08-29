@@ -10,54 +10,51 @@ import {
   RotateCcw,
   Verified
 } from "lucide-react";
-import { motion , Variants } from "framer-motion";
+import { motion } from "framer-motion";
 
 const PricingSection = () => {
   const plans = [
     {
-      name: "Starter Agent",
+      name: "Starter",
       price: "$49",
       period: "month",
-      description: "Perfect for new agents looking to build a steady pipeline.",
+      description: "Access the marketplace and pay full price per lead.",
       features: [
-        "25 Verified Buyer/Seller Leads",
-        "Location-Based Filters",
-        "Basic Contact Management",
-        "Lead Quality Score",
-        "Email Support"
+        "Standard marketplace access",
+        "Pay full price per lead",
+        "Basic filters (location, property type)",
+        "Email lead alerts"
       ],
       popular: false,
       variant: "outline" as const,
       icon: <Zap className="w-5 h-5 text-primary" />
     },
     {
-      name: "Growth Broker",
-      price: "$199",
+      name: "Growth",
+      price: "$129",
       period: "month",
-      description: "Most popular plan for growing agents and small teams.",
+      description: "Priority access + 10% off all lead purchases.",
       features: [
-        "100 Verified Real Estate Leads",
-        "Advanced Filters + Tagging",
-        "Custom Lead Notes & Status",
-        "Performance Analytics",
-        "Priority Email Support"
+        "10% discount on all leads",
+        "Priority access (~30 mins earlier)",
+        "Enhanced filters (budget, buyer/seller, intent)",
+        "AI smart lead recommendations"
       ],
       popular: true,
       variant: "hero" as const,
       icon: <Briefcase className="w-5 h-5 text-white" />
     },
     {
-      name: "Enterprise Team",
-      price: "$499",
+      name: "Pro",
+      price: "$299",
       period: "month",
-      description: "Built for large teams and brokerages that need volume and customization.",
+      description: "Early access + 20% off, advanced scoring & CRM integrations.",
       features: [
-        "Unlimited Leads Per Month",
-        "API Access for CRM Integration",
-        "White-label Dashboards",
-        "Team Collaboration Tools",
-        "Dedicated Account Manager",
-        "24/7 Premium Support"
+        "20% discount on all leads",
+        "Early access (~2 hours earlier)",
+        "Advanced lead scoring & insights",
+        "CRM integrations (Zoho, HubSpot, Salesforce)",
+        "Pipeline management dashboard"
       ],
       popular: false,
       variant: "accent" as const,
@@ -74,16 +71,17 @@ const PricingSection = () => {
             <span
               className="bg-clip-text text-transparent inline-block"
               style={{
-                background: "radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)",
+                background:
+                  "radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent"
               }}
             >
-              Lead Plan
+              Subscription
             </span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Flexible monthly pricing for agents, brokers, and real estate teams — pay only for what you need.
+            Subscribe for access, tools, priority—and buy leads on demand. No free leads; pay‑per‑lead with plan‑based discounts.
           </p>
         </div>
 
@@ -104,16 +102,15 @@ const PricingSection = () => {
             >
               {plan.popular && (
                 <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    whileInView={{ scale: 1, opacity: 1 }}
-                    animate={{ scale: [1, 1.05, 1], opacity: [1, 0.9, 1] }}
-                    transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                    >
-                    <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 gradient-primary text-primary-foreground">
-                        Most Popular
-                    </Badge>
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  whileInView={{ scale: 1, opacity: 1 }}
+                  animate={{ scale: [1, 1.05, 1], opacity: [1, 0.9, 1] }}
+                  transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+                >
+                  <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 gradient-primary text-primary-foreground">
+                    Most Popular
+                  </Badge>
                 </motion.div>
-
               )}
 
               <div className="text-center mb-8">
@@ -135,8 +132,7 @@ const PricingSection = () => {
                     className="flex items-center gap-3"
                     whileHover={{ scale: 1.02, x: 4 }}
                     transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    >
-
+                  >
                     <Check className="w-5 h-5 text-primary flex-shrink-0" />
                     <span className="text-sm">{feature}</span>
                   </motion.li>
@@ -147,8 +143,8 @@ const PricingSection = () => {
                 variant={plan.popular ? "default" : "outline"}
                 className={`w-full ${plan.popular ? "bg-primary text-white hover:brightness-110" : ""}`}
                 size="lg"
-                >
-                {plan.popular ? 'Get Started' : 'Choose Plan'}
+              >
+                {plan.popular ? "Get Started" : "Choose Plan"}
               </Button>
             </motion.div>
           ))}
@@ -162,7 +158,7 @@ const PricingSection = () => {
           transition={{ delay: 0.2, duration: 0.5 }}
         >
           <p className="text-muted-foreground mb-4">
-            All plans include lead quality scoring, dashboard access, and a 14-day money-back guarantee.
+            All plans include dashboard access and refunds on invalid/unreachable leads.
           </p>
           <Button variant="ghost" className="text-primary hover:text-primary/80">
             Compare Plans →
@@ -178,7 +174,7 @@ const PricingSection = () => {
         >
           <div className="text-muted-foreground mb-4 text-sm">
             <div className="flex items-center gap-2 px-3 py-2">
-              <Verified className="w-4 h-4 text-primary" /> Risk-Free Guarantee: Get a full refund if a lead is invalid or unreachable.
+              <Verified className="w-4 h-4 text-primary" /> Risk‑Free: Refund if a lead is invalid or unreachable.
             </div>
           </div>
           <div className="flex flex-wrap gap-4 justify-center text-xs text-muted-foreground">

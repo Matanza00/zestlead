@@ -42,7 +42,7 @@ export default function SubscriptionPage(props) {
     })();
   }, [status, parsedLeadId, router]);
 
-  const handleSelectPlan = async (planKey: 'STARTER' | 'GROWTH' | 'ENTERPRISE') => {
+  const handleSelectPlan = async (planKey: 'STARTER' | 'GROWTH' | 'PRO') => {
     if (!parsedLeadId) {
       toast.error('Missing lead ID');
       return;

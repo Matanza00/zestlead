@@ -1,3 +1,4 @@
+// src/pages/auth/signup.tsx
 'use client';
 
 import { useState } from 'react';

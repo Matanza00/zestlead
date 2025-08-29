@@ -6,6 +6,21 @@ import { prisma } from '@/lib/prisma';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
 });
+// ---- Buy-delay helpers ----
+type PlanKey = 'STARTER' | 'GROWTH' | 'PRO';
+function normalizePlanKey(name?: string | null): PlanKey {
+  const v = (name || '').toUpperCase();
+  if (v.includes('PRO')) return 'PRO';
+  if (v.includes('GROWTH')) return 'GROWTH';
+  if (v.includes('STARTER')) return 'STARTER';
+  return 'STARTER';
+}
+function requiredDelayMsForTier(tier: PlanKey) {
+  if (tier === 'PRO') return 0;
+  if (tier === 'GROWTH') return 2 * 60 * 60 * 1000;  // 2h
+  return 24 * 60 * 60 * 1000;                        // 24h for STARTER/others
+}
+
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -26,11 +41,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1️⃣ Fetch all leads
-    const leads = await prisma.lead.findMany({ where: { id: { in: ids } } });
-    if (leads.length !== ids.length) {
-      return res.status(400).json({ error: 'Some leads not found.' });
+    // 1) Resolve user's active subscription & tier
+    const sub = await prisma.subscription.findFirst({
+      where: { userId, status: 'ACTIVE', expiresAt: { gt: new Date() } },
+      select: { tierName: true },
+    });
+    const tier = normalizePlanKey(sub?.tierName);
+    const delayMs = requiredDelayMsForTier(tier);
+
+    // 2) Load the leads we’re checking out
+    const leads = await prisma.lead.findMany({
+      where: { id: { in: leadIds } },
+      select: { id: true, name: true, createdAt: true },
+    });
+
+    // 3) Compute eligibility per lead
+    const now = Date.now();
+    const blocked = leads
+      .map(l => {
+        const eligibleAt = new Date(l.createdAt.getTime() + delayMs);
+        const waitMs = eligibleAt.getTime() - now;
+        return waitMs > 0
+          ? {
+              id: l.id,
+              name: l.name,
+              eligibleAt: eligibleAt.toISOString(),
+              waitMinutes: Math.ceil(waitMs / 60000),
+            }
+          : null;
+      })
+      .filter(Boolean) as Array<{id:string;name?:string;eligibleAt:string;waitMinutes:number}>;
+
+    // 4) If any lead is too new, block checkout with details
+    if (blocked.length > 0) {
+      return res.status(409).json({
+        error: 'LEADS_NOT_ELIGIBLE',
+        tier,
+        blocked,
+        message:
+          tier === 'PRO'
+            ? 'PRO should be instant; please contact support.'
+            : 'Some leads are not yet eligible to buy for your subscription tier.',
+      });
     }
+
 
     // 2️⃣ Lookup discount/referral
     let discountPercent = 0;

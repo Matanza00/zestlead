@@ -71,10 +71,102 @@ const [manualForm, setManualForm] = useState<ManualLeadForm>({
   const [csvData, setCsvData] = useState<any[]>([])
   const [fileName, setFileName] = useState('')
 
-  const handleManualSubmit = async (e:any) => {
-    e.preventDefault()
-    // … same upload logic …
+  const [submitting, setSubmitting] = useState(false)
+
+const handleManualSubmit = async (e: any) => {
+  e.preventDefault()
+  if (submitting) return;
+  setSubmitting(true)
+
+  try {
+    // Basic validation (tweak as needed)
+    if (!manualForm.name?.trim() || !manualForm.contact?.trim()) {
+      alert('Please fill in at least Name and Contact.')
+      setSubmitting(false)
+      return
+    }
+
+    // If user picked "Upload" for audio, the current code uses a blob URL
+    // (URL.createObjectURL) which is NOT accessible to the server.
+    // Ideally, upload the file to your storage and set manualForm.audioFileUrl to the returned URL.
+    // For now, we’ll just send audioFileUrl as-is.
+    // If you already have an upload API, call it here and swap the URL.
+
+    const base = {
+      leadType: manualForm.leadType,                      // BUYER | SELLER
+      name: manualForm.name?.trim(),
+      contact: manualForm.contact?.trim(),
+      email: manualForm.email?.trim(),
+      appointment: manualForm.appointment?.trim(),
+      audioFileUrl: manualForm.audioFileUrl?.trim(),
+      price: manualForm.price?.trim(),
+      notes: manualForm.notes?.trim(),
+    }
+
+    const payload =
+      manualForm.leadType === 'BUYER'
+        ? {
+            ...base,
+            propertyType: manualForm.propertyType?.trim(),
+            beds: manualForm.beds?.trim(),
+            baths: manualForm.baths?.trim(),
+            desireArea: manualForm.desireArea?.trim(),
+            priceRange: manualForm.priceRange?.trim(),
+            paymentMethod: manualForm.paymentMethod?.trim(),
+            preApproved: manualForm.preApproved === 'true',
+            timeline: manualForm.timeline?.trim(),
+            hasRealtor: manualForm.hasRealtor === 'true',
+            specialReq: manualForm.specialReq?.trim(),
+          }
+        : {
+            ...base,
+            propertyType: manualForm.propertyType_s?.trim(),
+            beds: manualForm.beds_s?.trim(),
+            baths: manualForm.baths_s?.trim(),
+            propertySize: manualForm.propertySize?.trim(),
+            propertyAddress: manualForm.propertyAddress?.trim(),
+            parcelId: manualForm.parcelId?.trim(),
+            askingPrice: manualForm.askingPrice?.trim(),
+            marketValue: manualForm.marketValue?.trim(),
+            hasRealtor: manualForm.hasRealtor === 'true',
+            specialFeatures: manualForm.specialFeatures?.trim(),
+            condition: manualForm.condition?.trim(),
+          }
+
+    // POST to your manual-create endpoint (adjust path to match your API)
+    const res = await fetch('/api/admin/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      console.error('Create lead failed:', text)
+      alert('Failed to submit lead.')
+    } else {
+      alert('Lead created successfully.')
+      // Optional: reset form
+      setManualForm({
+        ...manualForm,
+        name: '', contact: '', email: '', appointment: '',
+        audioFileUrl: '', price: '',
+        propertyType: '', beds: '', baths: '', desireArea: '',
+        priceRange: '', paymentMethod: '', preApproved: 'false', timeline: '',
+        hasRealtor: 'false', specialReq: '', notes: '',
+        propertyType_s: '', beds_s: '', baths_s: '',
+        propertySize: '', propertyAddress: '', parcelId: '',
+        askingPrice: '', marketValue: '', specialFeatures: '', condition: '',
+      })
+    }
+  } catch (err) {
+    console.error(err)
+    alert('Something went wrong while submitting the lead.')
+  } finally {
+    setSubmitting(false)
   }
+}
+
 
   const handleFileUpload = (e:any) => {
     const f = e.target.files?.[0]
@@ -147,8 +239,9 @@ const [manualForm, setManualForm] = useState<ManualLeadForm>({
                   className="w-full rounded-lg border px-4 py-2"
                   value={leadType}
                   onChange={e => {
-                    setLeadType(e.target.value as any)
-                    setManualForm((f: ManualLeadForm) => ({ ...f, paymentMethod: e.target.value }))
+                    const val = e.target.value as 'BUYER' | 'SELLER'
+                    setLeadType(val)
+                    setManualForm(f => ({ ...f, leadType: val }))
                   }}
                 >
                   <option>BUYER</option>
@@ -553,14 +646,16 @@ const [manualForm, setManualForm] = useState<ManualLeadForm>({
                 <Button
                   type="submit"
                   size="lg"
+                  disabled={submitting}
                   className="px-8 text-white font-semibold"
                   style={{
                     backgroundImage:
                       'radial-gradient(187.72% 415.92% at 52.87% 247.14%,#3A951B 0%,#1CDAF4 100%)'
                   }}
                 >
-                  Submit Lead
+                  {submitting ? 'Submitting…' : 'Submit Lead'}
                 </Button>
+
               </div>
             </form>
           </div>

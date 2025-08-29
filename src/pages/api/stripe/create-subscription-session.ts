@@ -42,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const priceMap: Record<string,string> = {
     STARTER:    process.env.STRIPE_PRICE_STARTER!,
     GROWTH:     process.env.STRIPE_PRICE_GROWTH!,
-    ENTERPRISE: process.env.STRIPE_PRICE_ENTERPRISE!,
+    PRO: process.env.STRIPE_PRICE_PRO!,
   };
 
   if (!plan || !priceMap[plan]) {

@@ -34,7 +34,7 @@ export default function AccountSettings(props) {
 
         {/* Tab Content */}
         <div className="bg-white border rounded shadow p-6">
-          {activeTab === 'Profile' && <ProfileTab />}
+          {activeTab === 'Account' && <ProfileTab />}
           {activeTab === 'Subscription' && <SubscriptionTab />}
           {activeTab === 'Billing History' && <BillingTab />}
           {activeTab === '2FA Settings' && <TwoFATab />}

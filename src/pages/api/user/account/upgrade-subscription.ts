@@ -19,9 +19,9 @@ const PLAN_PRICES: Record<string, { priceId: string; tierName: string }> = {
     priceId: process.env.STRIPE_PRICE_GROWTH!,
     tierName: 'Growth Broker',
   },
-  'Enterprise Team': {
-    priceId: process.env.STRIPE_PRICE_ENTERPRISE!,
-    tierName: 'Enterprise Team',
+  'PRO Team': {
+    priceId: process.env.STRIPE_PRICE_PRO!,
+    tierName: 'PRO Team',
   },
 };
 

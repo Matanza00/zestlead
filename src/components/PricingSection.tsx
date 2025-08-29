@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 
-type PlanKey = 'STARTER' | 'GROWTH' | 'ENTERPRISE';
+type PlanKey = 'STARTER' | 'GROWTH' | 'PRO';
 
 const plans: {
   key: PlanKey;
@@ -29,54 +29,52 @@ const plans: {
 }[] = [
   {
     key: 'STARTER',
-    name: "Starter Agent",
-    price: "$49",
-    period: "month",
-    description: "Perfect for new agents looking to build a steady pipeline.",
+    name: 'Starter',
+    price: '$49',
+    period: 'month',
+    description: 'Access the marketplace and pay full price per lead.',
     features: [
-      "25 Verified Buyer/Seller Leads",
-      "Location-Based Filters",
-      "Basic Contact Management",
-      "Lead Quality Score",
-      "Email Support"
+      'Standard access to lead marketplace',
+      'Pay full price per lead',
+      'Basic filters (location, property type)',
+      'Email alerts for matching leads'
     ],
     popular: false,
     icon: <Zap className="w-5 h-5 text-primary" />
   },
   {
     key: 'GROWTH',
-    name: "Growth Broker",
-    price: "$199",
-    period: "month",
-    description: "Most popular plan for growing agents and small teams.",
+    name: 'Growth',
+    price: '$129',
+    period: 'month',
+    description: 'Priority access and 10% off all lead purchases.',
     features: [
-      "100 Verified Real Estate Leads",
-      "Advanced Filters + Tagging",
-      "Custom Lead Notes & Status",
-      "Performance Analytics",
-      "Priority Email Support"
+      '10% discount on all leads',
+      'Priority access (≈30 min earlier)',
+      'Enhanced filters (budget, buyer/seller, intent)',
+      'AI smart recommendations'
     ],
     popular: true,
     icon: <Briefcase className="w-5 h-5 text-white" />
   },
   {
-    key: 'ENTERPRISE',
-    name: "Enterprise Team",
-    price: "$499",
-    period: "month",
-    description: "Built for large teams and brokerages that need volume and customization.",
+    key: 'PRO',
+    name: 'Pro',
+    price: '$299',
+    period: 'month',
+    description: 'Early access, 20% off, and advanced tooling.',
     features: [
-      "Unlimited Leads Per Month",
-      "API Access for CRM Integration",
-      "White-label Dashboards",
-      "Team Collaboration Tools",
-      "Dedicated Account Manager",
-      "24/7 Premium Support"
+      '20% discount on all leads',
+      'Early access (≈2 hours earlier)',
+      'Advanced lead scoring & insights',
+      'CRM integrations (Zoho, HubSpot, Salesforce)',
+      'Pipeline management dashboard'
     ],
     popular: false,
     icon: <Building2 className="w-5 h-5 text-primary" />
   }
 ];
+
 
 export default function PricingSection({
   subscribed = false,

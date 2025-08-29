@@ -14,6 +14,110 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 const prisma = new PrismaClient();
 
+// --- Subscription discount helpers ---
+
+type PlanKey = 'STARTER' | 'GROWTH' | 'PRO';
+
+// Map display names or metadata to a stable PlanKey
+function normalizePlanKey(input?: string | null): PlanKey {
+  const v = (input || '').trim().toUpperCase();
+  if (v.includes('PRO')) return 'PRO';
+  if (v.includes('GROWTH')) return 'GROWTH';
+  if (v.includes('STARTER')) return 'STARTER';
+  // Fallback: exact slug
+  if (v === 'PRO' || v === 'GROWTH' || v === 'STARTER') return v as PlanKey;
+  // Last resort starter
+  return 'STARTER';
+}
+
+// Reuse or create a subscription discount for the user.
+// Growth = 10%, PRO = 20% (Starter = none).
+async function grantOrExtendSubscriptionDiscount(opts: {
+  userId: string;
+  planKey: PlanKey;
+  periodEnd: Date; // Stripe subscription current_period_end as Date
+}) {
+  const { userId, planKey, periodEnd } = opts;
+
+  if (planKey === 'STARTER') return null;
+
+  const targetPercent       = planKey === 'GROWTH' ? 10 : 20;
+  const targetAssignments   = planKey === 'GROWTH' ? 100 : 200;
+  const descriptionTemplate = `${planKey} subscription discount`;
+
+  // 1) Look for an existing active discount for this user & tier
+  const existing = await prisma.discount.findFirst({
+    where: {
+      active: true,
+      percentage: targetPercent,
+      description: descriptionTemplate,
+      assignedUsers: { some: { userId } },
+    },
+    include: { assignedUsers: true },
+  });
+
+  if (existing) {
+    // Extend validity to the new subscription period end if needed
+    if (existing.expiresAt && existing.expiresAt < periodEnd) {
+      await prisma.discount.update({
+        where: { id: existing.id },
+        data: { expiresAt: periodEnd },
+      });
+    }
+
+    // Top up assignment pool if running low (optional)
+    const totalAssigned = existing.assignedUsers.length;
+    const unused        = existing.assignedUsers.filter(a => !a.used).length;
+    const need          = Math.max(0, targetAssignments - totalAssigned);
+
+    if (need > 0 || unused < 10) {
+      const toAdd = need > 0 ? need : 20; // small bump if 'unused' is low
+      await prisma.discountAssignment.createMany({
+        data: Array.from({ length: toAdd }, () => ({
+          discountId: existing.id,
+          userId,
+        })),
+      });
+    }
+
+    return existing; // ✅ reuse existing code
+  }
+
+  // 2) If no matching discount exists, we may be upgrading/downgrading.
+  //    Optionally deactivate other active sub-discount codes for this user to avoid confusion:
+  await prisma.discount.updateMany({
+    where: {
+      active: true,
+      description: { contains: 'subscription discount' },
+      assignedUsers: { some: { userId } },
+    },
+    data: { active: false },
+  });
+
+  // 3) Create a fresh code for this tier (first time or plan change)
+  const code = `${planKey}-${userId.slice(0, 6)}-${Date.now().toString(36).toUpperCase()}`;
+
+  const discount = await prisma.discount.create({
+    data: {
+      code,
+      description: descriptionTemplate,
+      percentage: targetPercent,
+      active: true,
+      expiresAt: periodEnd,
+      stackable: false,
+    },
+  });
+
+  await prisma.discountAssignment.createMany({
+    data: Array.from({ length: targetAssignments }, () => ({
+      discountId: discount.id,
+      userId,
+    })),
+  });
+
+  return discount; // ✅ new code on first-time or on tier change
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   let event: Stripe.Event;
 
@@ -27,12 +131,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // CHECKOUT SESSION COMPLETED
+  // ─────────────────────────────────────────────────────────────────────────
   if (event.type === 'checkout.session.completed') {
     const sessionObj = event.data.object as Stripe.Checkout.Session;
     const meta = sessionObj.metadata ?? {};
     const userId = meta.userId as string | undefined;
-    const stripeSubId = sessionObj.subscription as string | undefined;
-    const tierName   = meta.planName as string | undefined;
+    const csStripeSubId = sessionObj.subscription as string | undefined;
+    const tierName = meta.planName as string | undefined;
     const discountUsedId = meta.discountUsedId as string | undefined;
 
     // ── 1) LEAD PURCHASE FLOW ─────────────────────────────────────────────
@@ -138,18 +245,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // ── 2) SUBSCRIPTION FLOW ────────────────────────────────────────────────
-    if (sessionObj.mode === 'subscription' && userId && tierName && stripeSubId) {
+    if (sessionObj.mode === 'subscription' && userId && tierName && csStripeSubId) {
       try {
         // fetch Stripe subscription for dates & interval
-        const stripeSub = await stripe.subscriptions.retrieve(stripeSubId);
-        const interval = stripeSub.items.data[0]?.price.recurring?.interval;
+        const stripeSub = await stripe.subscriptions.retrieve(csStripeSubId);
+
+        const price = stripeSub.items.data[0]?.price;
+        const interval = price?.recurring?.interval;           // 'month' | 'year'
+        const count = price?.recurring?.interval_count ?? 1;   // e.g. 3 => quarterly prepay
+
         let plan: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' = 'MONTHLY';
         if (interval === 'year') plan = 'YEARLY';
-        else if (interval === 'month') plan = 'MONTHLY';
+        else if (interval === 'month' && count === 3) plan = 'QUARTERLY';
 
         const expiresAt = new Date(stripeSub.current_period_end * 1000);
 
-        // upsert subscription row
+        // upsert subscription row (no credits)
         await prisma.subscription.upsert({
           where: { userId },
           update: {
@@ -157,17 +268,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             status: 'ACTIVE',
             tierName,
             expiresAt,
-            stripeSubscriptionId: stripeSubId,
+            stripeSubscriptionId: stripeSub.id,
           },
           create: {
             userId,
-            stripeSubscriptionId: stripeSubId,
+            stripeSubscriptionId: stripeSub.id,
             plan,
             status: 'ACTIVE',
             tierName,
-            credits: 10,
             expiresAt,
           },
+        });
+
+        // Issue or extend the per-user discount for Growth/PRO
+        await grantOrExtendSubscriptionDiscount({
+          userId,
+          planKey: normalizePlanKey(tierName || (meta.planName as string) || ''),
+          periodEnd: expiresAt,
         });
 
         // ensure we don't duplicate transaction
@@ -178,9 +295,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           await prisma.transaction.create({
             data: {
               userId,
-              amount: stripeSub.items.data[0]?.price.unit_amount
-                ? stripeSub.items.data[0].price.unit_amount / 100
-                : 0,
+              amount: price?.unit_amount ? price.unit_amount / 100 : 0,
               type: 'SUBSCRIPTION',
               status: 'SUCCESS',
               reference: stripeSub.id,
@@ -195,6 +310,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Subscription error' });
       }
     }
+
+    // done with checkout.session.completed
+    return res.status(200).json({ received: true });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // INVOICE PAYMENT SUCCEEDED (subscription renewals)
+  // ─────────────────────────────────────────────────────────────────────────
+  else if (event.type === 'invoice.payment_succeeded') {
+    const invoice = event.data.object as Stripe.Invoice;
+
+    // Only for subscription invoices
+    const invStripeSubId =
+      typeof invoice.subscription === 'string' ? invoice.subscription : undefined;
+    if (!invStripeSubId) {
+      return res.status(200).json({ received: true });
+    }
+
+    // Find our user + plan from DB (we saved stripeSubscriptionId earlier)
+    const subRow = await prisma.subscription.findFirst({
+      where: { stripeSubscriptionId: invStripeSubId },
+      select: { userId: true, tierName: true },
+    });
+    if (!subRow) {
+      return res.status(200).json({ received: true });
+    }
+
+    // Extend the same code to the new subscription period end
+    const stripeSub = await stripe.subscriptions.retrieve(invStripeSubId);
+    const periodEnd = new Date((stripeSub.current_period_end as number) * 1000);
+
+    await grantOrExtendSubscriptionDiscount({
+      userId: subRow.userId,
+      planKey: normalizePlanKey(subRow.tierName),
+      periodEnd,
+    });
+
+    return res.status(200).json({ received: true });
   }
 
   // default
