@@ -21,12 +21,12 @@ import {
 import { motion } from 'framer-motion';
 import CombinedNavSidebar from '@/components/CombinedNavbar';
 
-type PlanKey = 'STARTER' | 'GROWTH' | 'PRO';
+type PlanKey = 'STARTER' | 'GROWTH' | 'ENTERPRISE';
 
 // Normalize any tier string to a key
 function normalizePlanKey(input?: string | null): PlanKey {
   const v = (input || '').toUpperCase();
-  if (v.includes('PRO')) return 'PRO';
+  if (v.includes('ENTERPRISE')) return 'ENTERPRISE';
   if (v.includes('GROWTH')) return 'GROWTH';
   if (v.includes('STARTER')) return 'STARTER';
   return 'STARTER'; // unknown/no sub => treat as STARTER
@@ -34,7 +34,7 @@ function normalizePlanKey(input?: string | null): PlanKey {
 
 // Delay by tier
 function requiredDelayMsForTier(tier: PlanKey) {
-  if (tier === 'PRO') return 0;
+  if (tier === 'ENTERPRISE') return 0;
   if (tier === 'GROWTH') return 2 * 60 * 60 * 1000;  // 2h
   return 24 * 60 * 60 * 1000;                        // 24h
 }
@@ -52,7 +52,7 @@ function formatCountdown(ms: number) {
 
 // Compute eligibility for countdown
 function getEligibility(createdAtISO: string | undefined, tier: PlanKey, nowMs: number) {
-  if (tier === 'PRO') {
+  if (tier === 'ENTERPRISE') {
     return { eligible: true, remainingMs: 0, eligibleAt: null as Date | null };
   }
   if (!createdAtISO) {
@@ -92,9 +92,9 @@ interface LeadDetail {
 
 // Return the minimal tier that would allow instant-buy *right now*
 function bestInstantUpgradeTier(createdAtISO: string | undefined, nowMs: number): PlanKey | null {
-  if (!createdAtISO) return 'PRO'; // unknown age → only PRO is guaranteed instant
+  if (!createdAtISO) return 'ENTERPRISE'; // unknown age → only Enterprise is guaranteed instant
   const created = new Date(createdAtISO).getTime();
-  if (Number.isNaN(created)) return 'PRO';
+  if (Number.isNaN(created)) return 'ENTERPRISE';
 
   const ageMs = nowMs - created;
   const twoHours = 2 * 60 * 60 * 1000;
@@ -102,8 +102,8 @@ function bestInstantUpgradeTier(createdAtISO: string | undefined, nowMs: number)
   // If the lead is at least 2h old, Growth would already be instant.
   if (ageMs >= twoHours) return 'GROWTH';
 
-  // Otherwise only PRO is instant right now.
-  return 'PRO';
+  // Otherwise only Enterprise is instant right now.
+  return 'ENTERPRISE';
 }
 
 
@@ -195,7 +195,7 @@ export default function LeadViewPage(props) {
   const info = getEligibility(lead.createdAt, tier, now);
   const isLocked = !lead.isPurchased && !info.eligible;
   const buttonLabel = isLocked
-    ? `Locked • ${formatCountdown(info.remainingMs)}`
+    ? `Upgrade to Unlock • ${formatCountdown(info.remainingMs)}`
     : 'Buy Lead to View Contact';
   const buttonTitle = isLocked
     ? `Available at ${info.eligibleAt?.toLocaleString()}`
@@ -332,13 +332,10 @@ export default function LeadViewPage(props) {
                     </div>
                   )}
                 </div>
-                <div className="block mt-2">
-                 
-                {!lead.isPurchased && recommendedTier && (
-                  
-                      <button
+                {!lead.isPurchased && isLocked &&(
+                <button
                         onClick={() => goUpgrade(recommendedTier)}
-                        className="text-xs mt-2 px-3 py-2 rounded-full text-white"
+                        className="mr-2 text-xs mt-2 px-3 py-3 rounded-full text-white"
                         style={{
                             background: 'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)'
                         }}
@@ -346,12 +343,29 @@ export default function LeadViewPage(props) {
                       >
                         Upgrade to <span className="font-semibold">{recommendedTier}</span> to buy instantly
                       </button>
-                    
                 )}
+                {!lead.isPurchased && (
+                  <button
+                    onClick={handleBuy}
+                    disabled={isLocked}
+                    title={buttonTitle}
+                    className={`mt-4 inline-flex items-center text-sm px-4 py-2 rounded-full font-medium gap-2 transition border
+                      ${isLocked
+                        ? 'cursor-not-allowed opacity-60 bg-gray-100 text-gray-500 border-gray-300'
+                        : 'border-primary text-primary hover:bg-primary/10'
+                      }`}
+                    aria-disabled={isLocked}
+                  >
+                    {isLocked ? <Lock className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
+                    {buttonLabel}
+                  </button>
+                  
+                )}
+                
 
                 {/* Optional helper text when locked */}
                 {isLocked && (
-                  <div className="p-3 flex flex-wrap items-center gap-3">
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
                     <p className="text-xs text-gray-500">
                       Unlocks at {formatCountdown(info.remainingMs)}
                     </p>
@@ -360,18 +374,18 @@ export default function LeadViewPage(props) {
                     
                   </div>
                 )}
-                </div>
+
               </div>
 
               {/* Remarks */}
-              {/* <div>
+              <div>
                 <label className="block font-medium text-sm mb-1">Remarks</label>
                 <textarea
                   rows={3}
                   placeholder="Add your remarks or notes"
                   className="w-full rounded-md border border-border px-4 py-2 text-sm bg-muted resize-none"
                 />
-              </div> */}
+              </div>
             </div>
 
             {/* Map / Right Section */}

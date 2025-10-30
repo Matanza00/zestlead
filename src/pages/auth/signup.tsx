@@ -1,7 +1,7 @@
 // src/pages/auth/signup.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { signIn } from 'next-auth/react';
 import Image from 'next/image';
@@ -10,33 +10,42 @@ export default function SignupPage(props) {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const router = useRouter();
 
-  // 1) Decode incoming callbackUrl once
+  // Decode incoming callbackUrl once
   const rawCb = Array.isArray(router.query.callbackUrl)
     ? router.query.callbackUrl[0]
     : (router.query.callbackUrl as string) || '';
   const callbackUrl = rawCb ? decodeURIComponent(rawCb) : '';
+
+  // NEW: capture ?ref= from the URL
+  const referralCode = useMemo(() => {
+    const rawRef = Array.isArray(router.query.ref)
+      ? router.query.ref[0]
+      : (router.query.ref as string) || '';
+    return rawRef.trim();
+  }, [router.query.ref]);
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     const res = await fetch('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      // NEW: include referralCode when present
+      body: JSON.stringify({ ...form, referralCode }),
     });
 
     if (res.ok) {
-      // 2) Push to login with the *decoded* callbackUrl
       const suffix = callbackUrl
         ? `?callbackUrl=${encodeURIComponent(callbackUrl)}`
         : '';
       router.push(`/auth/login${suffix}`);
     } else {
-      alert('Signup failed');
+      const { error } = await res.json().catch(() => ({ error: 'Signup failed' }));
+      alert(error || 'Signup failed');
     }
   };
 
-  // 3) Google signUp also uses the decoded callback
   const handleGoogle = () => {
+    // You can also pass referralCode via a cookie/query if you want it honored in the Google flow
     signIn('google', { callbackUrl: callbackUrl || '/' });
   };
 
@@ -60,13 +69,7 @@ export default function SignupPage(props) {
               className="w-full max-w-xs font-bold shadow-xl rounded-lg py-3 bg-green-100 text-gray-800 flex items-center justify-center transition-all duration-300 ease-in-out focus:outline-none hover:shadow"
             >
               <div className="bg-white p-2 rounded-full">
-                <Image
-                  src="/auth/google-logo.png"
-                  alt="Google Logo"
-                  width={24}
-                  height={24}
-                  className="w-6 h-6"
-                />
+                <Image src="/auth/google-logo.png" alt="Google Logo" width={24} height={24} className="w-6 h-6" />
               </div>
               <span className="ml-4">Sign Up with Google</span>
             </button>
@@ -76,6 +79,13 @@ export default function SignupPage(props) {
                 Or sign up with email
               </span>
             </div>
+
+            {/* Optional: show detected ref code */}
+            {referralCode ? (
+              <div className="mb-3 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
+                Referred by code: <span className="font-mono">{referralCode}</span>
+              </div>
+            ) : null}
 
             <form onSubmit={handleSubmit} className="mx-auto max-w-xs">
               <input
@@ -102,10 +112,17 @@ export default function SignupPage(props) {
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="w-full px-8 py-4 mb-6 rounded-lg border bg-gray-100 focus:outline-none"
               />
-              <button
-                type="submit"
-                className="w-full py-4 rounded-lg bg-gradient-to-r from-green-600 to-blue-400 text-white font-semibold"
-              >
+
+              {/* Optional visible input if you want users to paste a code manually:
+              <input
+                type="text"
+                placeholder="Referral code (optional)"
+                value={referralCode}
+                onChange={(e) => setManualRef(e.target.value)}
+                className="w-full px-8 py-4 mb-6 rounded-lg border bg-gray-100 focus:outline-none"
+              /> */}
+
+              <button type="submit" className="w-full py-4 rounded-lg bg-gradient-to-r from-green-600 to-blue-400 text-white font-semibold">
                 Sign Up
               </button>
             </form>
@@ -116,9 +133,7 @@ export default function SignupPage(props) {
                 onClick={() =>
                   router.push(
                     `/auth/login${
-                      callbackUrl
-                        ? `?callbackUrl=${encodeURIComponent(callbackUrl)}`
-                        : ''
+                      callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''
                     }`
                   )
                 }

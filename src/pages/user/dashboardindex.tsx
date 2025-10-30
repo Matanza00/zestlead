@@ -20,7 +20,7 @@ const areaChartData = [
 
 // Mock data for the table
 const recentLeadsData = [
-    { name: 'John Smith', phone: '+1 (405) 234 3452', property: 'Street 16, Sunset Boulevard', status: 'Not Contacted' },
+    { name: 'John Smith', phone: '+1 (495) 234 3452', property: 'Street 16, Sunset Boulevard', status: 'Not Contacted' },
     { name: 'Jane Doe', phone: '+1 (312) 456 7890', property: 'Avenue 21, Maple Street', status: 'Contacted' },
     { name: 'Emily Carter', phone: '+1 (415) 789 1234', property: '123 Elm Street, Oakwood', status: 'Reached Out' },
     { name: 'Sophia Bennett', phone: '+1 (408) 555 9876', property: '456 Maple Avenue, Greenfield', status: 'Contacted' },
@@ -67,7 +67,7 @@ const ActivityIcon = ({ iconName, className }) => {
     return icons[iconName] || null;
 }
 
-export default function DashboardPage() {
+export default function DashboardPage(props) {
     const { data: session } = useSession();
 
     const getStatusBadgeClass = (status) => {

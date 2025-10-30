@@ -11,26 +11,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const { id } = req.query as { id: string };
 
-  // READ a specific purchase (by purchaseId or by leadId)
   if (req.method === 'GET') {
     try {
       const purchase = await prisma.leadPurchase.findFirst({
         where: {
           userId: session.user.id,
-          OR: [
-            { id: id },
-            { leadId: id }
-          ]
+          OR: [{ id }, { leadId: id }],
         },
-        include: {
-          lead: {
-            include: { tags: true }
-          }
-        },
+        include: { lead: { include: { tags: true } } },
       });
-      if (!purchase) {
-        return res.status(404).json({ error: 'Purchase not found' });
-      }
+      if (!purchase) return res.status(404).json({ error: 'Purchase not found' });
       return res.status(200).json(purchase);
     } catch (err) {
       console.error('[API] GET /api/user/my-leads/[id]', err);
@@ -38,25 +28,87 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  // DELETE (cancel) a purchase by purchaseId or leadId
-  if (req.method === 'DELETE') {
+  // NEW: update status & notes
+  if (req.method === 'PUT' || req.method === 'PATCH') {
     try {
-      // first find the purchase record
+      const body = req.body || {};
+      let { status, notes } = body as { status?: string; notes?: string };
+
+      // Normalize & validate status (if provided)
+      const allowed = new Set(['CONTACTED', 'NOT_CONTACTED', 'NO_RESPONSE', 'CLOSED']);
+      let normalizedStatus: string | undefined = undefined;
+      if (typeof status === 'string' && status.trim()) {
+        normalizedStatus = status.toString().trim().toUpperCase().replace(/\s+/g, '_');
+        if (!allowed.has(normalizedStatus)) {
+          return res.status(400).json({ error: 'Invalid status' });
+        }
+      }
+
+      // Find the user's purchase by purchaseId or leadId
       const purchase = await prisma.leadPurchase.findFirst({
         where: {
           userId: session.user.id,
-          OR: [
-            { id: id },
-            { leadId: id }
-          ]
-        }
+          OR: [{ id }, { leadId: id }],
+        },
+        select: { id: true, leadId: true },
       });
+
       if (!purchase) {
         return res.status(404).json({ error: 'Purchase not found' });
       }
-      await prisma.leadPurchase.delete({
+
+      // Build transactional updates
+      const tx: any[] = [];
+
+      if (typeof notes === 'string') {
+        tx.push(
+          prisma.lead.update({
+            where: { id: purchase.leadId },
+            data: { notes },
+          })
+        );
+      }
+
+      if (normalizedStatus) {
+        tx.push(
+          prisma.leadPurchase.update({
+            where: { id: purchase.id },
+            data: { status: normalizedStatus },
+          })
+        );
+      }
+
+      // If nothing to update, still return current purchase
+      if (tx.length) {
+        await prisma.$transaction(tx);
+      }
+
+      // Return refreshed shape matching GET
+      const refreshed = await prisma.leadPurchase.findUnique({
         where: { id: purchase.id },
+        include: {
+          lead: { include: { tags: true } },
+        },
       });
+
+      return res.status(200).json(refreshed);
+    } catch (err) {
+      console.error('[API] PUT /api/user/my-leads/[id]', err);
+      return res.status(500).json({ error: 'Failed to update purchase' });
+    }
+  }
+
+
+  if (req.method === 'DELETE') {
+    try {
+      const purchase = await prisma.leadPurchase.findFirst({
+        where: {
+          userId: session.user.id,
+          OR: [{ id }, { leadId: id }],
+        },
+      });
+      if (!purchase) return res.status(404).json({ error: 'Purchase not found' });
+      await prisma.leadPurchase.delete({ where: { id: purchase.id } });
       return res.status(200).json({ success: true });
     } catch (err) {
       console.error('[API] DELETE /api/user/my-leads/[id]', err);
@@ -64,6 +116,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  res.setHeader('Allow', ['GET', 'DELETE']);
+  res.setHeader('Allow', ['GET', 'PUT', 'PATCH', 'DELETE']);
   return res.status(405).json({ error: `Method ${req.method} not allowed` });
 }

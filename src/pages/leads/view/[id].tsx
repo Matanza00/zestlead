@@ -5,85 +5,172 @@ import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import {
-  User, Phone, Home, MapPin, DollarSign,
-  Calendar, Map, ChevronRight,
-  Mail,
-  Bed,
-  Bath
+  User, Phone, Home, MapPin, DollarSign, Calendar, Map,
+  Mail, Bed, Bath, Lock, ChevronLeft
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import Header from '@/components/landing/Header';
+
+// --------- Plan helpers (mirrors your working user/lead/view page) ----------
+type PlanKey = 'STARTER' | 'GROWTH' | 'PRO';
+
+// Normalize any tier string to a key
+function normalizePlanKey(input?: string | null): PlanKey {
+  const v = (input || '').toUpperCase();
+  if (v.includes('PRO')) return 'PRO';
+  if (v.includes('GROWTH')) return 'GROWTH';
+  if (v.includes('STARTER')) return 'STARTER';
+  return 'STARTER'; // unknown/no sub => treat as STARTER
+}
+
+// Delay by tier
+function requiredDelayMsForTier(tier: PlanKey) {
+  if (tier === 'PRO') return 0;
+  if (tier === 'GROWTH') return 2 * 60 * 60 * 1000;  // 2h
+  return 24 * 60 * 60 * 1000;                        // 24h
+}
+
+// HH:MM:SS
+function formatCountdown(ms: number) {
+  if (ms <= 0) return '00:00:00';
+  const total = Math.floor(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+// Compute eligibility for countdown
+function getEligibility(createdAtISO: string | undefined, tier: PlanKey, nowMs: number) {
+  if (tier === 'PRO') {
+    return { eligible: true, remainingMs: 0, eligibleAt: null as Date | null };
+  }
+  if (!createdAtISO) {
+    // If createdAt is missing, assume eligible (server still enforces)
+    return { eligible: true, remainingMs: 0, eligibleAt: null as Date | null };
+  }
+  const created = new Date(createdAtISO).getTime();
+  if (Number.isNaN(created)) {
+    return { eligible: true, remainingMs: 0, eligibleAt: null as Date | null };
+  }
+  const delay = requiredDelayMsForTier(tier);
+  const eligibleAtMs = created + delay;
+  const remainingMs = Math.max(0, eligibleAtMs - nowMs);
+  return {
+    eligible: remainingMs === 0,
+    remainingMs,
+    eligibleAt: new Date(eligibleAtMs),
+  };
+}
+
+// Return the minimal tier that would allow instant-buy *right now*
+function bestInstantUpgradeTier(createdAtISO: string | undefined, nowMs: number): PlanKey {
+  if (!createdAtISO) return 'PRO'; // unknown age → only PRO is guaranteed instant
+  const created = new Date(createdAtISO).getTime();
+  if (Number.isNaN(created)) return 'PRO';
+
+  const ageMs = nowMs - created;
+  const twoHours = 2 * 60 * 60 * 1000;
+
+  // If the lead is at least 2h old, Growth would already be instant.
+  if (ageMs >= twoHours) return 'GROWTH';
+
+  // Otherwise only PRO is instant right now.
+  return 'PRO';
+}
+// ---------------------------------------------------------------------------
 
 interface LeadDetail {
   id: string;
-  name: string;
+  name?: string;
   leadType: string;
   propertyType: string;
-  timeline: string;
-  desireArea: string;
-  priceRange: string;
+  timeline?: string;
+  desireArea?: string;
+  priceRange?: string;
   address?: string;
   beds?: number;
   baths?: number;
   contact?: string;
   email?: string;
   isPurchased: boolean;
+  createdAt?: string; // 👈 used for countdown
 }
 
 export default function LeadViewPage(props) {
-  const { query } = useRouter();
   const router = useRouter();
+  const { query } = router;
   const { data: session } = useSession();
+
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<{ isSubscribed: boolean } | null>(null);
 
+  // Subscription tier (for chip + button lock)
+  const [tier, setTier] = useState<PlanKey>('STARTER');
+  // Ticking clock for live countdown
+  const [now, setNow] = useState<number>(Date.now());
+
   useEffect(() => {
-  const getUser = async () => {
-    try {
-      const res = await fetch('/api/user/me');
-      const data = await res.json();
-      setUserData(data);
-    } catch {
-      console.error('Failed to fetch user');
-    }
-  };
-  getUser();
-}, []);
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
+  // Fetch user basic info (isSubscribed)
+  useEffect(() => {
+    fetch('/api/user/me')
+      .then(r => r.json())
+      .then(data => setUserData(data))
+      .catch(() => setUserData(null));
+  }, []);
 
-  const fetchLead = async (id: string) => {
-    try {
-      const res = await fetch(`/api/public/leads/${id}`);
-      if (!res.ok) throw new Error('Lead not found');
-      const data = await res.json();
-      setLead(data);
-    } catch (err) {
-      console.error('Error fetching lead', err);
-      setLead(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fetch current subscription tier (same endpoint used on subscription page)
+  useEffect(() => {
+    fetch('/api/user/account/subscription', { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then((data) => {
+        const t =
+          (data as any)?.tierName ||
+          (data as any)?.subscription?.tierName ||
+          (data as any)?.plan ||
+          (data as any)?.name;
+        setTier(normalizePlanKey(t));
+      })
+      .catch(() => setTier('STARTER'));
+  }, []);
 
-  const masked = (value: string | undefined, type: 'name' | 'email' | 'contact') => {
-  if (!value) return '••••••';
-  if (type === 'name') return '*********';
-  if (type === 'email') return '••••••@••••.com';
-  if (type === 'contact') return '+1 ••• ••• ••••';
-  return '••••••';
-};
-
+  // Fetch the lead
   useEffect(() => {
     const { id } = query;
-    if (typeof id === 'string') fetchLead(id);
+    if (typeof id !== 'string') return;
+
+    fetch(`/api/public/leads/${id}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Lead not found');
+        return res.json();
+      })
+      .then((data: LeadDetail) => setLead(data))
+      .catch(() => setLead(null))
+      .finally(() => setLoading(false));
   }, [query]);
+
+  const masked = (value: string | undefined, type: 'name' | 'email' | 'contact') => {
+    if (!value) return '••••••';
+    if (type === 'name') return '*********';
+    if (type === 'email') return '••••••@••••.com';
+    if (type === 'contact') return '+1 ••• ••• ••••';
+    return '••••••';
+  };
 
   const handleBuy = () => {
     if (!session?.user) {
-      router.push(`/auth/login?callbackUrl=${router.asPath}`);
-      return;
+      router.push(`/auth/login?callbackUrl=${encodeURIComponent(router.asPath)}`);
+    } else if (!userData?.isSubscribed) {
+      router.push(`/subscription?redirect=${encodeURIComponent(router.asPath)}`);
+    } else {
+      router.push(`/cart?leadId=${lead?.id}`);
     }
-    router.push(`/subscription?redirect=${router.asPath}`);
   };
 
   if (loading) return <div className="p-8 text-center">Loading lead...</div>;
@@ -92,9 +179,59 @@ export default function LeadViewPage(props) {
   const fullAddress = encodeURIComponent(lead.address || `${lead.desireArea}, USA`);
   const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${fullAddress}&zoom=15&size=600x400&markers=color:red%7C${fullAddress}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`;
 
+  // Countdown info (used to lock the button until eligible)
+  const info = getEligibility(lead.createdAt, tier, now);
+  const isLocked = !lead.isPurchased && !info.eligible;
+  const buttonLabel = isLocked
+    ? `Upgrade to Unlock • ${formatCountdown(info.remainingMs)}`
+    : 'Buy Lead to View Contact';
+  const buttonTitle = isLocked
+    ? `Available at ${info.eligibleAt?.toLocaleString()}`
+    : undefined;
+
+  // Recommended tier for instant access right now
+  const recommendedTier = bestInstantUpgradeTier(lead.createdAt, now);
+
+  const goUpgrade = (target: PlanKey) => {
+    const redir = encodeURIComponent(router.asPath);
+    router.push(`/user/subscription?redirect=${redir}&target=${target}`);
+  };
+
+  // Optional small chip near title (visual indicator)
+  const Chip = ({ label, kind, title }: { label: string; kind: 'instant'|'growth'|'starter'; title?: string }) => {
+    const cls =
+      kind === 'instant'
+        ? 'bg-green-100 text-green-700'
+        : kind === 'growth'
+        ? 'bg-amber-100 text-amber-700'
+        : 'bg-gray-100 text-gray-700';
+    return (
+      <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium ${cls}`} title={title}>
+        {label}
+      </span>
+    );
+  };
+  const chipLabel = info.eligible ? 'Instant buy' : `Buy in ${formatCountdown(info.remainingMs)}`;
+  const chipKind: 'instant' | 'growth' | 'starter' =
+    info.eligible ? 'instant' : tier === 'GROWTH' ? 'growth' : 'starter';
+  const chipTitle = info.eligible
+    ? 'This lead is eligible to buy now'
+    : `Eligible at ${info.eligibleAt?.toLocaleString()}`;
+
   return (
     <section className="py-16 bg-background border-t border-border">
+      <Header/>
       <div className="container mx-auto px-4 max-w-6xl">
+
+        {/* Back */}
+        <button
+          onClick={() => router.back()}
+          className="mb-6 inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-800"
+        >
+          <ChevronLeft className="w-5 h-5 mr-1" />
+          Back
+        </button>
+
         <motion.h3
           className="text-3xl font-bold mb-10 text-center"
           initial={{ opacity: 0, y: 30 }}
@@ -113,58 +250,102 @@ export default function LeadViewPage(props) {
           {/* Left Section */}
           <div className="flex flex-col gap-6">
             <div className="space-y-1">
-              <h4 className="text-xl font-semibold mb-2">Details</h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-xl font-semibold mb-2">Details</h4>
+                {/* Eligibility chip (only relevant if not purchased) */}
+                {!lead.isPurchased && (
+                  <Chip label={chipLabel} kind={chipKind} title={chipTitle} />
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-y-3 text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <User className="w-4 h-4 text-primary" />
-                  <span><strong>Name:</strong> {lead.isPurchased ? lead.name : masked(lead.name, 'name')}</span>
+                  <span>
+                    <strong>Name:</strong>{' '}
+                    {lead.isPurchased ? lead.name : masked(lead.name, 'name')}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Phone className="w-4 h-4 text-primary" />
-                  <span><strong>Phone:</strong> {lead.isPurchased ? lead.contact : masked(lead.contact, 'contact')}</span>
+                  <span>
+                    <strong>Phone:</strong>{' '}
+                    {lead.isPurchased ? lead.contact : masked(lead.contact, 'contact')}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Mail className="w-4 h-4 text-primary" />
-                  <span><strong>Email:</strong> {lead.isPurchased ? lead.email : masked(lead.email, 'email')}</span>
+                  <span>
+                    <strong>Email:</strong>{' '}
+                    {lead.isPurchased ? lead.email : masked(lead.email, 'email')}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Home className="w-4 h-4 text-primary" />
-                  <span><strong>Type:</strong> {lead.propertyType}</span>
+                  <span>
+                    <strong>Type:</strong> {lead.propertyType}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <MapPin className="w-4 h-4 text-primary" />
-                  <span><strong>Area:</strong> {lead.desireArea}</span>
+                  <span>
+                    <strong>Area:</strong> {lead.desireArea}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <DollarSign className="w-4 h-4 text-primary" />
-                  <span><strong>Price Range:</strong> {lead.priceRange}</span>
+                  <span>
+                    <strong>Price Range:</strong> {lead.priceRange}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="w-4 h-4 text-primary" />
-                  <span><strong>Timeline:</strong> {lead.timeline}</span>
+                  <span>
+                    <strong>Timeline:</strong> {lead.timeline}
+                  </span>
                 </div>
                 {lead.beds !== undefined && (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Bed className="w-4 h-4 text-primary" />
-                    <span><strong>Beds:</strong> {lead.beds}</span>
+                    <span>
+                      <strong>Beds:</strong> {lead.beds}
+                    </span>
                   </div>
                 )}
                 {lead.baths !== undefined && (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Bath className="w-4 h-4 text-primary" />
-                    <span><strong>Baths:</strong> {lead.baths}</span>
+                    <span>
+                      <strong>Baths:</strong> {lead.baths}
+                    </span>
                   </div>
                 )}
               </div>
 
-              {!lead.isPurchased && (
+              {/* Upgrade CTA (when locked & not purchased) */}
+              {!lead.isPurchased && isLocked && (
                 <button
-                  className="mt-4 inline-flex items-center text-sm px-4 py-2 rounded-full font-medium gap-2 border border-primary text-primary hover:bg-primary/10 transition"
-                  onClick={handleBuy}
+                  onClick={() => goUpgrade(recommendedTier)}
+                  className="mr-2 text-xs mt-2 px-3 py-3 rounded-full text-white"
+                  style={{
+                    background:
+                      'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)',
+                  }}
+                  title={`Upgrade to ${recommendedTier} to buy instantly`}
                 >
-                  <Phone className="w-4 h-4" />
-                  Buy Lead to View Contact
+                  Upgrade to <span className="font-semibold">{recommendedTier}</span> to buy instantly
                 </button>
+              )}
+
+              {/* Primary Buy Button (disabled when locked) */}
+             
+
+              {/* Helper text when locked */}
+              {isLocked && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Unlocks in {formatCountdown(info.remainingMs)}
+                  {info.eligibleAt ? ` • at ${info.eligibleAt.toLocaleString()}` : ''}
+                </p>
               )}
             </div>
 
@@ -178,66 +359,76 @@ export default function LeadViewPage(props) {
               />
             </div>
 
-            {/* Bottom CTA Button Section */}
+            {/* Bottom CTA Section (mirrors top logic but explicit flows) */}
             <div className="mt-6 flex gap-2">
               {!session?.user ? (
-                // 3️⃣ Not logged in → send to login, callback back to this lead
+                // Not logged in → send to login, callback back to this lead
                 <button
                   onClick={() =>
-                    router.push(
-                      `/auth/login?callbackUrl=/leads/view/${lead.id}`
-                    )
+                    router.push(`/auth/login?callbackUrl=/leads/view/${lead.id}`)
                   }
                   className="w-full text-sm px-4 py-2 bg-primary text-white rounded-full"
                 >
                   Log in to Buy Lead
                 </button>
-
               ) : !userData?.isSubscribed ? (
-                // 2️⃣ Logged in & NOT subscribed → send to subscription page
+                // Logged in & NOT subscribed → send to subscription page
                 <button
-                  onClick={() =>
-                    router.push(
-                      `/subscription?leadId=${lead.id}`
-                    )
-                  }
+                  onClick={() => router.push(`/subscription?leadId=${lead.id}`)}
                   className="w-full text-sm px-4 py-2 bg-yellow-500 text-white rounded-full"
                 >
                   Subscribe to Buy Lead
                 </button>
-
               ) : !lead.isPurchased ? (
-                // 1️⃣ Logged in & Subscribed & not yet purchased → send to cart
-                <button
-                  onClick={() =>
-                    router.push(`/cart?leadId=${lead.id}`)
-                  }
-                  className="w-full text-sm px-4 py-2 bg-green-600 text-white rounded-full"
-                >
-                  Buy Lead
-                </button>
-
+                // Logged in & Subscribed & not yet purchased
+                isLocked ? (
+                  <div className="flex w-full gap-2">
+                    <button
+                      disabled
+                      className="flex-1 text-sm px-4 py-2 bg-amber-500/90 text-white rounded-full cursor-not-allowed inline-flex items-center justify-center gap-2"
+                      title={buttonTitle}
+                    >
+                      <Lock className="w-4 h-4" />
+                      Upgrade to Unlock • {formatCountdown(info.remainingMs)}
+                    </button>
+                    <button
+                      onClick={() => goUpgrade(recommendedTier)}
+                      className="text-sm px-4 py-2 rounded-full text-white"
+                      style={{
+                        background:
+                          'radial-gradient(187.72% 415.92% at 52.87% 247.14%, #3A951B 0%, #1CDAF4 100%)',
+                      }}
+                      title={`Upgrade to ${recommendedTier} to buy instantly`}
+                    >
+                      Upgrade to <span className="font-semibold">{recommendedTier}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => router.push(`/cart?leadId=${lead.id}`)}
+                    className="w-full text-sm px-4 py-2 bg-green-600 text-white rounded-full"
+                  >
+                    Buy Lead
+                  </button>
+                )
               ) : (
                 // Already purchased
                 <button
-                  onClick={() =>
-                    router.push(`/user/leads/view/${lead.id}`)
-                  }
+                  onClick={() => router.push(`/user/leads/view/${lead.id}`)}
                   className="w-full text-sm px-4 py-2 bg-blue-600 text-white rounded-full"
                 >
                   View Lead in Dashboard
                 </button>
               )}
             </div>
-
           </div>
 
-          {/* Map */}
+          {/* Map / Right Section */}
           <div className="w-full h-full">
             <div className="relative w-full h-full rounded-lg overflow-hidden border border-border">
               {lead.isPurchased ? (
                 <img
-                  src={`https://maps.googleapis.com/maps/api/staticmap?center=${fullAddress}&zoom=15&size=600x400&markers=color:red%7C${fullAddress}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
+                  src={mapUrl}
                   alt="Lead Map"
                   className="w-full h-full object-cover"
                 />
@@ -259,8 +450,9 @@ export default function LeadViewPage(props) {
             </div>
           </div>
         </motion.div>
-
       </div>
+      
     </section>
+    
   );
 }

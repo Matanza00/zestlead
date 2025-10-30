@@ -3,6 +3,7 @@ import { buffer } from 'micro';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
+import { getIO } from '@/lib/socket';
 
 export const config = {
   api: { bodyParser: false },
@@ -187,6 +188,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             where: { id: leadId },
             data: { isAvailable: false }
           });
+          // 🔔 broadcast live removal
+          try {
+            const io = getIO();
+            io?.emit('lead:unavailable', leadId);
+          } catch (e) {
+            console.warn('Socket emit failed (lead:unavailable):', e);
+          }
 
           // record transaction
           await prisma.transaction.create({

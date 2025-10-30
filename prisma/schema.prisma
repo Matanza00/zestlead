@@ -9,42 +9,90 @@ datasource db {
 }
 
 model User {
-  id             String             @id @default(uuid())
-  email          String             @unique
-  name           String?
-  password       String?
-  image          String?
-  emailVerified  DateTime?
-  interests      Json?      // User's saved lead-interest preferences
-  emailNotification Boolean @default(true)
-  inAppNotification       Boolean @default(true)
-  notifyPayment           Boolean @default(true)
-  notifySubscription      Boolean @default(true)
-  role           Role               @default(AGENT)
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  deletedAt      DateTime?
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  name               String?
+  password           String?
+  image              String?
+  emailVerified      DateTime?
+  interests          Json? // User's saved lead-interest preferences
+  emailNotification  Boolean   @default(true)
+  inAppNotification  Boolean   @default(true)
+  notifyPayment      Boolean   @default(true)
+  notifySubscription Boolean   @default(true)
+  role               Role      @default(AGENT)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
 
-  stripeCustomerId String?  // ✅ Add this line
+  stripeCustomerId String? // ✅ Add this line
+  // Public code the user shares
+  referralCode     String? @unique @default(cuid())
+  // ✅ NEW: balance of free leads the user can redeem
+  freeLeadCredits    Int       @default(0)
 
-  notifications   Notification[]
-  subscriptions  Subscription[]
-  leadPurchases  LeadPurchase[]
-  loginLogs      LoginLog[]
-  twoFactorAuth  TwoFactorAuth?
-  tickets        SupportTicket[]
-  messages       SupportMessage[]
-  auditLogs      AuditLog[]
+  // --- Self relation (who referred me?) ---
+  referredById String?
+  referredBy   User?   @relation("UserReferrals", fields: [referredById], references: [id])
+
+  // --- Self relation opposite (users I referred directly, via referredBy) ---
+  referredUsers User[] @relation("UserReferrals")
+
+  // --- Referral records where I'm the referrer (via Referral.referrer) ---
+  referrals Referral[] @relation("ReferrerReferrals")
+
+  // --- Referral record where I'm the referred user (via Referral.referredUser) ---
+  referralAsReferredUser Referral? @relation("ReferredUserReferral")
+
+  notifications       Notification[]
+  subscriptions       Subscription[]
+  leadPurchases       LeadPurchase[]
+  loginLogs           LoginLog[]
+  twoFactorAuth       TwoFactorAuth?
+  tickets             SupportTicket[]
+  messages            SupportMessage[]
+  auditLogs           AuditLog[]
   discountAssignments DiscountAssignment[]
-  assignedLeads  AssignedLead[]
-  transactions   Transaction[]
-  cartItems      CartItem[]
-  activity    Activity[]
-  supportChats  SupportChat[] 
-  wishlist      Wishlist[]     @relation("UserWishlist")
+  assignedLeads       AssignedLead[]
+  transactions        Transaction[]
+  cartItems           CartItem[]
+  activity            Activity[]
+  supportChats        SupportChat[]
+  wishlist            Wishlist[]           @relation("UserWishlist")
+  CrmConnection     CrmConnection[]
 
   accounts Account[]
-  sessions Session[] 
+  sessions Session[]
+}
+
+model Referral {
+  id String @id @default(cuid())
+
+  // Referrer side (many referrals per referrer)
+  referrerId String
+  referrer   User   @relation("ReferrerReferrals", fields: [referrerId], references: [id])
+
+  // Email captured at code use / signup
+  referredEmail String
+
+  // Link to the created user (at most one referral per referred user)
+  referredUserId String? @unique
+  referredUser   User?   @relation("ReferredUserReferral", fields: [referredUserId], references: [id])
+
+  status     ReferralStatus @default(PENDING)
+  rewardedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([referrerId, referredEmail]) // avoid duplicate invites by the same referrer
+}
+
+enum ReferralStatus {
+  PENDING
+  SIGNED_UP
+  SUBSCRIBED
+  REWARDED
 }
 
 enum Role {
@@ -54,19 +102,19 @@ enum Role {
 }
 
 model Subscription {
-  id           String    @id @default(uuid())
-  userId       String    @unique // ← this line
-  plan         SubscriptionPlan
-  status       SubscriptionStatus
-  credits      Int       @default(0)
-  startedAt    DateTime  @default(now())
-  expiresAt    DateTime
-  discountId   String?
-  tierName     String?       // "Starter Agent", etc.
-  stripeSubscriptionId  String   // <- add this
+  id                   String             @id @default(uuid())
+  userId               String             @unique // ← this line
+  plan                 SubscriptionPlan
+  status               SubscriptionStatus
+  credits              Int                @default(0)
+  startedAt            DateTime           @default(now())
+  expiresAt            DateTime
+  discountId           String?
+  tierName             String? // "Starter Agent", etc.
+  stripeSubscriptionId String // <- add this
 
-  user         User      @relation(fields: [userId], references: [id])
-  discount     Discount? @relation(fields: [discountId], references: [id])
+  user     User      @relation(fields: [userId], references: [id])
+  discount Discount? @relation(fields: [discountId], references: [id])
 }
 
 enum SubscriptionPlan {
@@ -82,45 +130,45 @@ enum SubscriptionStatus {
 }
 
 model Lead {
-  id                   String           @id @default(uuid())
-  leadType             LeadType
-  name                 String
-  contact              String
-  email                String?
-  propertyType         String
-  beds                 Float?
-  baths                Float?
-  desireArea           String?
-  priceRange           String?
-  price                Float?           // admin‐defined purchase price when lead is bought
+  id           String   @id @default(uuid())
+  leadType     LeadType
+  name         String
+  contact      String
+  email        String?
+  propertyType String
+  beds         Float?
+  baths        Float?
+  desireArea   String?
+  priceRange   String?
+  price        Float? // admin‐defined purchase price when lead is bought
 
   // seller-specific fields
-  askingPrice          Float?
-  marketValue          Float?
-  propertySize         String?          // e.g. "2,794 sqft"
-  propertyAddress      String?          // full address
-  parcelId             String?
-  condition            String?
-  specialRequirements  String?          // your “Special Requirements”
-  
-  paymentMethod        String?
-  preApproved          Boolean          @default(false)
-  hasRealtor           Boolean          @default(false)
-  timeline             String?          // e.g. "1 month" or "Under 4 weeks"
-  appointment          String?          // e.g. "Tomorrow 4–5 PM"
-  notes                String?
+  askingPrice         Float?
+  marketValue         Float?
+  propertySize        String? // e.g. "2,794 sqft"
+  propertyAddress     String? // full address
+  parcelId            String?
+  condition           String?
+  specialRequirements String? // your “Special Requirements”
 
-  audioFileUrl         String?
-  isAvailable          Boolean          @default(true)
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
-  deletedAt            DateTime?
+  paymentMethod String?
+  preApproved   Boolean @default(false)
+  hasRealtor    Boolean @default(false)
+  timeline      String? // e.g. "1 month" or "Under 4 weeks"
+  appointment   String? // e.g. "Tomorrow 4–5 PM"
+  notes         String?
 
-  purchases            LeadPurchase[]
-  assignedTo           AssignedLead[]
-  tags                 LeadTag[]
-  cartItems            CartItem[]
-  wishlist             Wishlist[] @relation("UserWishlist")
+  audioFileUrl String?
+  isAvailable  Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  purchases  LeadPurchase[]
+  assignedTo AssignedLead[]
+  tags       LeadTag[]
+  cartItems  CartItem[]
+  wishlist   Wishlist[]     @relation("UserWishlist")
 
   @@index([leadType, propertyType])
 }
@@ -131,15 +179,14 @@ enum LeadType {
 }
 
 model LeadTag {
-  id      String  @id @default(uuid())
-  name    String
-  leadId  String
+  id     String @id @default(uuid())
+  name   String
+  leadId String
 
-  lead    Lead    @relation(fields: [leadId], references: [id])
+  lead Lead @relation(fields: [leadId], references: [id])
 
   @@index([leadId])
 }
-  
 
 model AssignedLead {
   id         String   @id @default(uuid())
@@ -148,8 +195,8 @@ model AssignedLead {
   note       String?
   assignedAt DateTime @default(now())
 
-  lead       Lead     @relation(fields: [leadId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
+  lead Lead @relation(fields: [leadId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
 
 model CartItem {
@@ -158,25 +205,25 @@ model CartItem {
   leadId    String
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
-  lead      Lead     @relation(fields: [leadId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+  lead Lead @relation(fields: [leadId], references: [id])
 
   @@unique([userId, leadId])
 }
 
 model LeadPurchase {
-  id              String   @id @default(uuid())
-  userId          String
-  leadId          String
-  status          LeadInteractionStatus @default(NOT_CONTACTED)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  deletedAt       DateTime?
-  discountUsedId  String?
+  id             String                @id @default(uuid())
+  userId         String
+  leadId         String
+  status         LeadInteractionStatus @default(NOT_CONTACTED)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  deletedAt      DateTime?
+  discountUsedId String?
 
-  user            User     @relation(fields: [userId], references: [id])
-  lead            Lead     @relation(fields: [leadId], references: [id])
-  discountUsed    DiscountAssignment? @relation("LeadDiscount", fields: [discountUsedId], references: [id])
+  user         User                @relation(fields: [userId], references: [id])
+  lead         Lead                @relation(fields: [leadId], references: [id])
+  discountUsed DiscountAssignment? @relation("LeadDiscount", fields: [discountUsedId], references: [id])
 
   @@unique([userId, leadId])
 }
@@ -189,68 +236,68 @@ enum LeadInteractionStatus {
 }
 
 model AuditLog {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   adminId     String
   action      String
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  admin       User     @relation(fields: [adminId], references: [id])
+  admin User @relation(fields: [adminId], references: [id])
 }
-  
+
 model BlogPost {
-  id          String   @id @default(uuid())
-  title       String
-  slug        String   @unique
-  content     String
-  excerpt     String?
-  coverImage  String?
-  published   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  id         String    @id @default(uuid())
+  title      String
+  slug       String    @unique
+  content    String
+  excerpt    String?
+  coverImage String?
+  published  Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
 }
-  
+
 model LoginLog {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   userId     String
   ip         String
   userAgent  String
-  successful Boolean @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  successful Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
 
-  user       User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
-  
+
 model TwoFactorAuth {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  enabled   Boolean  @default(false)
+  id        String    @id @default(uuid())
+  userId    String    @unique
+  enabled   Boolean   @default(false)
   secret    String?
-  createdAt DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
-  user      User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
-  
+
 model SupportTicket {
-  id        String         @id @default(uuid())
+  id        String       @id @default(uuid())
   userId    String
   subject   String
-  status    TicketStatus   @default(OPEN)
-  createdAt DateTime       @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  status    TicketStatus @default(OPEN)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  deletedAt DateTime?
 
-  user      User           @relation(fields: [userId], references: [id])
-  messages  SupportMessage[]
+  user     User             @relation(fields: [userId], references: [id])
+  messages SupportMessage[]
 }
-  
+
 enum TicketStatus {
   OPEN
   IN_PROGRESS
@@ -258,62 +305,62 @@ enum TicketStatus {
 }
 
 model SupportMessage {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   ticketId  String
   senderId  String
   content   String
-  createdAt DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
-  ticket    SupportTicket @relation(fields: [ticketId], references: [id])
-  sender    User          @relation(fields: [senderId], references: [id])
+  ticket SupportTicket @relation(fields: [ticketId], references: [id])
+  sender User          @relation(fields: [senderId], references: [id])
 }
-  
+
 model Discount {
-  id            String    @id @default(uuid())
-  code          String    @unique
-  description   String?
-  percentage    Float
-  active        Boolean   @default(true)
-  expiresAt     DateTime?
-  maxUsage      Int?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime @updatedAt
-  deletedAt     DateTime?
-  stackable     Boolean   @default(false)
-  maxCap        Float?     // Maximum discount amount in USD
+  id                String               @id @default(uuid())
+  code              String               @unique
+  description       String?
+  percentage        Float
+  active            Boolean              @default(true)
+  expiresAt         DateTime?
+  maxUsage          Int?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  deletedAt         DateTime?
+  stackable         Boolean              @default(false)
+  maxCap            Float? // Maximum discount amount in USD
   stripePromotionId String? // 🔁 add this if syncing with Stripe
-  assignedUsers DiscountAssignment[]
-  subscriptions Subscription[]
+  assignedUsers     DiscountAssignment[]
+  subscriptions     Subscription[]
 }
-  
+
 model DiscountAssignment {
   id         String   @id @default(uuid())
   discountId String
   userId     String
-  used       Boolean   @default(false)
-  assignedAt DateTime  @default(now())
+  used       Boolean  @default(false)
+  assignedAt DateTime @default(now())
 
-  discount   Discount @relation(fields: [discountId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
+  discount      Discount       @relation(fields: [discountId], references: [id])
+  user          User           @relation(fields: [userId], references: [id])
   leadPurchases LeadPurchase[] @relation("LeadDiscount")
 }
-  
-model Transaction {
-  id          String   @id @default(uuid())
-  userId      String
-  amount      Float
-  type        TransactionType
-  status      TransactionStatus
-  reference   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
 
-  user        User     @relation(fields: [userId], references: [id])
+model Transaction {
+  id        String            @id @default(uuid())
+  userId    String
+  amount    Float
+  type      TransactionType
+  status    TransactionStatus
+  reference String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  deletedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id])
 }
-  
+
 enum TransactionType {
   SUBSCRIPTION
   LEAD_PURCHASE
@@ -327,18 +374,18 @@ enum TransactionStatus {
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?
-  session_state      String?
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
 
   user User @relation(fields: [userId], references: [id])
 
@@ -363,15 +410,15 @@ model VerificationToken {
 }
 
 model Notification {
-  id        String   @id @default(uuid())
+  id        String           @id @default(uuid())
   userId    String
   type      NotificationType
   title     String
   message   String
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
@@ -389,17 +436,17 @@ model Activity {
   description String
   createdAt   DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
 
 model SupportChat {
-  id        String   @id @default(uuid())
-  user      User     @relation(fields: [userId], references: [id])
+  id        String     @id @default(uuid())
+  user      User       @relation(fields: [userId], references: [id])
   userId    String
   message   String
-  sender    SenderType     // 'USER' or 'ADMIN'
+  sender    SenderType // 'USER' or 'ADMIN'
   seen      Boolean    @default(false) // <- NEW
-  createdAt DateTime @default(now())
+  createdAt DateTime   @default(now())
 }
 
 enum SenderType {
@@ -416,4 +463,47 @@ model Wishlist {
   createdAt DateTime @default(now())
 
   @@unique([userId, leadId])
+}
+
+enum CRMProvider {
+  AIRTABLE
+  HUBSPOT
+  SALESFORCE
+  ZAPIER
+  ZOHO
+  INSIGHTLY
+  APPTIVO
+}
+
+enum CRMAuthType {
+  OAUTH
+  API_KEY
+}
+
+model CrmConnection {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  provider    CRMProvider
+  authType    CRMAuthType
+
+  // OAUTH
+  accessToken  String?
+  refreshToken String?
+  expiresAt    DateTime?
+  instanceUrl  String?   // e.g., Salesforce domain, Zoho base domain
+
+  // API Key
+  apiKey      String?    // e.g., Airtable/Insightly/Apptivo
+  // Optional second key for providers that need two keys (Apptivo, etc.)
+  apiKey2     String?
+
+  // Per-provider config and per-user field mapping
+  metadata     Json?
+  fieldMapping Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, provider])
 }

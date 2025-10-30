@@ -17,6 +17,12 @@ type CartItem = {
     priceRange: string;
   };
 };
+// 1) Add a tiny helper up top (below imports)
+const num = (v: any, fallback = 0): number => {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
 
 type AssignedDiscount = {
   code: string;
@@ -34,12 +40,26 @@ const getDiscountLabel = (d: { code: string }) => {
   return c; // other discounts show the full code
 };
 
+function normalizePlanKey(input?: string | null): PlanKey {
+  const v = (input || '').toUpperCase();
+
+  // Treat Enterprise as PRO-tier benefits
+  if (v.includes('ENTERPRISE') || v.includes('BUSINESS') || v.includes('PRO')) return 'PRO';
+
+  if (v.includes('GROWTH')) return 'GROWTH';
+  if (v.includes('STARTER')) return 'STARTER';
+  return 'STARTER';
+}
+
+
 
 export default function CartPage(props) {
   const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
 
   // promo (typed or selected)
+  const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
+
   const [promo, setPromo] = useState('');
   const [promoValid, setPromoValid] = useState(false);
   const [discountPercent, setDiscountPercent] = useState(0);
@@ -55,12 +75,122 @@ export default function CartPage(props) {
   const fetchCart = async () => {
     try {
       const res = await fetch('/api/cart');
-      const data = await res.json();
-      setItems(data);
+      const data: CartItem[] = await res.json();
+
+      // Partition: valid (>0) vs zero/invalid price
+      const valid: CartItem[] = [];
+      const zeroIds: string[] = [];
+
+      for (const it of Array.isArray(data) ? data : []) {
+        const price = num(it?.lead?.price, 0);
+        if (price > 0) {
+          valid.push(it);
+        } else if (it?.id) {
+          zeroIds.push(it.id);
+        }
+      }
+
+      setItems(valid);
+
+      // Silently purge zero-priced items on the server
+      if (zeroIds.length) {
+        // fire-and-forget; no need to block UI
+        removeItemsById(zeroIds, { silent: true });
+      }
     } catch {
       toast.error('Failed to load cart.');
     }
   };
+
+
+  const removeItem = async (itemId: string) => {
+    // optimistic UI
+    setRemovingIds(prev => new Set(prev).add(itemId));
+    const prevItems = items;
+    setItems(prev => prev.filter(i => i.id !== itemId));
+    setDiscountedIds(prev => {
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
+
+    let ok = false;
+
+    // Attempt 1: DELETE /api/cart/:itemId
+    try {
+      const res = await fetch(`/api/cart/${itemId}`, { method: 'DELETE' });
+      ok = res.ok;
+    } catch {}
+
+    // Attempt 2: DELETE /api/cart with JSON body
+    if (!ok) {
+      try {
+        const res = await fetch(`/api/cart`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemId }),
+        });
+        ok = res.ok;
+      } catch {}
+    }
+
+    if (ok) {
+      toast.success('Removed from cart');
+    } else {
+      // rollback + refetch for consistency
+      toast.error('Failed to remove. Restoring…');
+      setItems(prevItems);
+      fetchCart();
+    }
+
+    setRemovingIds(prev => {
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
+  };
+  const removeItemsById = async (ids: string[], { silent = true }: { silent?: boolean } = {}) => {
+  if (!ids.length) return;
+
+  // optimistic UI
+  setItems(prev => prev.filter(i => !ids.includes(i.id)));
+  setDiscountedIds(prev => {
+    const next = new Set(prev);
+    ids.forEach(id => next.delete(id));
+    return next;
+  });
+
+  const tryDelete = async (itemId: string) => {
+    // Attempt 1: DELETE /api/cart/:itemId
+    try {
+      const r = await fetch(`/api/cart/${itemId}`, { method: 'DELETE' });
+      if (r.ok) return true;
+    } catch {}
+    // Attempt 2: DELETE /api/cart with JSON body
+    try {
+      const r = await fetch(`/api/cart`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId }),
+      });
+      if (r.ok) return true;
+    } catch {}
+    return false;
+  };
+
+  const results = await Promise.allSettled(ids.map(tryDelete));
+  const anyFailed = results.some(r => r.status === 'fulfilled' && !r.value);
+
+  if (!silent) {
+    if (anyFailed) {
+      toast.error('Some items could not be removed. Refreshing cart…');
+      fetchCart();
+    } else {
+      toast.success('Removed from cart');
+    }
+  }
+};
+
 
   // auto-add via query param
   const leadIdParam = Array.isArray(router.query.leadId)
@@ -165,34 +295,35 @@ const fetchAssignedDiscounts = async () => {
 
   // apply discount to a specific cart-item
   const applyPromoToLead = (id: string, price: number) => {
-    if (!promoValid || discountPercent <= 0) return;
-    const raw = price * (discountPercent / 100);
-    const discountAmt = discountMaxCap != null ? Math.min(raw, discountMaxCap) : raw;
+  const safePrice = num(price, 0);
+  if (!promoValid || discountPercent <= 0 || safePrice <= 0) return;
+  const raw = safePrice * (discountPercent / 100);
+  const discountAmt = discountMaxCap != null ? Math.min(raw, discountMaxCap) : raw;
 
-    if (discountMaxCap != null && raw > discountMaxCap) {
-      toast(`Cap applied at $${discountMaxCap.toFixed(2)}`);
-    } else {
-      toast.success(`${discountPercent}% Discount Applied`);
-    }
-
-    setDiscountedIds((prev) => new Set(prev).add(id));
-  };
+  if (discountMaxCap != null && raw > discountMaxCap) {
+    toast(`Cap applied at $${discountMaxCap.toFixed(2)}`);
+  } else {
+    toast.success(`${discountPercent}% Discount Applied`);
+  }
+  setDiscountedIds((prev) => new Set(prev).add(id));
+};
 
   // compute total
+  // 3) Make the total calculation robust too
   const total = useMemo(
     () =>
-      items.reduce((sum, { id, lead }) => {
-        const price = lead.price;
-        if (discountedIds.has(id)) {
+      (items ?? []).reduce((sum, { id, lead }) => {
+        const price = num(lead.price, 0);              // <- coerce
+        if (discountedIds.has(id) && discountPercent > 0) {
           const raw = price * (discountPercent / 100);
-          const discountAmt =
-            discountMaxCap != null ? Math.min(raw, discountMaxCap) : raw;
-          return sum + (price - discountAmt);
+          const discountAmt = discountMaxCap != null ? Math.min(raw, discountMaxCap) : raw;
+          return sum + Math.max(0, price - discountAmt); // guard against negatives
         }
         return sum + price;
       }, 0),
     [items, discountedIds, discountPercent, discountMaxCap]
   );
+
 
   const copy = async (text: string) => {
     try {
@@ -227,6 +358,7 @@ const fetchAssignedDiscounts = async () => {
       return 'No expiry';
     }
   };
+  
 
   return (
     <CombinedNavSidebar>
@@ -248,77 +380,88 @@ const fetchAssignedDiscounts = async () => {
             <span className="text-right">Price</span>
           </div>
 
-          {items.map(({ id, lead }) => {
-            const original = lead.price;
-            const isDiscounted = discountedIds.has(id);
-            let final = original;
-            let discountAmt = 0;
+        {(items ?? []).map(({ id, lead }) => {
+          const original = num(lead.price, 0);
+          if (original <= 0) return null; // should never render due to fetch clean, but safe
+          const isDiscounted = discountedIds.has(id);
+          let final = original;
+          let discountAmt = 0;
 
-            if (isDiscounted) {
-              const raw = original * (discountPercent / 100);
-              discountAmt =
-                discountMaxCap != null ? Math.min(raw, discountMaxCap) : raw;
-              final = original - discountAmt;
-            }
+          if (isDiscounted && discountPercent > 0) {
+            const raw = original * (discountPercent / 100);
+            discountAmt = discountMaxCap != null ? Math.min(raw, discountMaxCap) : raw;
+            final = original - discountAmt;
+          }
 
-            return (
-              <div
-                key={id}
-                className="grid grid-cols-5 items-center border-t py-3 text-sm"
-              >
-                <div className="text-gray-900 font-medium">{lead.name}</div>
-                <div>{lead.desireArea}</div>
-                <div>{lead.propertyType}</div>
-                <div>{lead.priceRange}</div>
-                <div className="text-right">
-                  {isDiscounted ? (
-                    <>
-                      <span className="line-through text-gray-400 mr-1">
-                        ${original.toFixed(2)}
-                      </span>
-                      <span className="text-green-600 font-semibold">
-                        ${final.toFixed(2)}
-                      </span>
-                      <p className="text-green-500 text-xs">
-                        You saved ${discountAmt.toFixed(2)}
-                      </p>
-                      {discountMaxCap != null && discountAmt === discountMaxCap && (
-                        <p className="text-green-500 text-[10px]">
-                          (Cap of ${discountMaxCap.toFixed(2)} applied)
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-semibold text-gray-800">
-                        ${original.toFixed(2)}
-                      </span>
-                      {promoValid && (
-                        <button
-                          onClick={() => applyPromoToLead(id, original)}
-                          className="text-green-600 text-xs hover:underline ml-2"
-                        >
-                          Apply {discountPercent}% Off
-                        </button>
-                      )}
-                    </>
-                  )}
+          return (
+            <div key={id} className="grid grid-cols-5 items-center border-t py-3 text-sm">
+              <div className="text-gray-900 font-medium">
+                <div className="flex items-center justify-between gap-2">
+                  <span>{lead.name}</span>
                 </div>
+
+                <button
+                  onClick={() => removeItem(id)}
+                  disabled={removingIds.has(id)}
+                  className="mt-1 text-xs text-red-600 hover:underline disabled:opacity-50"
+                  title="Remove from cart"
+                >
+                  {removingIds.has(id) ? 'Removing…' : 'Remove'}
+                </button>
               </div>
-            );
-          })}
+
+              <div>{lead.desireArea}</div>
+              <div>{lead.propertyType}</div>
+              <div>{lead.priceRange}</div>
+              <div className="text-right">
+                {isDiscounted ? (
+                  <>
+                    <span className="line-through text-gray-400 mr-1">
+                      ${original.toFixed(2)}
+                    </span>
+                    <span className="text-green-600 font-semibold">
+                      ${final.toFixed(2)}
+                    </span>
+                    <p className="text-green-500 text-xs">
+                      You saved ${discountAmt.toFixed(2)}
+                    </p>
+                    {discountMaxCap != null && discountAmt === discountMaxCap && (
+                      <p className="text-green-500 text-[10px]">
+                        (Cap of ${discountMaxCap.toFixed(2)} applied)
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold text-gray-800">
+                      ${original.toFixed(2)}
+                    </span>
+                    {promoValid && original > 0 && (
+                      <button
+                        onClick={() => applyPromoToLead(id, original)}
+                        className="text-green-600 text-xs hover:underline ml-2"
+                      >
+                        Apply {discountPercent}% Off
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
         </div>
 
         {/* Summary */}
+
         <div className="text-right text-base font-semibold text-gray-800 mb-6">
-          Total:{' '}
-          <span className="text-green-700">
-            ${total.toFixed(2)}
-          </span>
+          Total: <span className="text-green-700">${num(total, 0).toFixed(2)}</span>
           <p className="text-sm text-gray-500 mt-1">
-            {items.length} Lead{items.length > 1 && 's'}
+            {(items ?? []).length} Lead{(items ?? []).length > 1 && 's'}
           </p>
         </div>
+
 
         {/* Promo Input */}
         <div className="mb-6 max-w-lg">

@@ -11,8 +11,48 @@ import {
   Verified
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/router";
+import { useState } from "react";
+
+type PlanKey = "STARTER" | "GROWTH" | "PRO";
+
+const toPlanKey = (name: string): PlanKey => {
+  const v = name.toUpperCase();
+  if (v.includes("PRO")) return "PRO";
+  if (v.includes("GROWTH")) return "GROWTH";
+  return "STARTER";
+};
 
 const PricingSection = () => {
+  const router = useRouter();
+  const [loadingPlan, setLoadingPlan] = useState<PlanKey | null>(null);
+
+  const startCheckout = async (planKey: PlanKey) => {
+    try {
+      setLoadingPlan(planKey);
+      const resp = await fetch("/api/stripe/create-subscription-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ plan: planKey, annual: false }) // set true if you add an annual toggle here
+      });
+
+      if (resp.status === 401) {
+        const cb = encodeURIComponent(router.asPath || "/pricing");
+        router.push(`/auth/login?callbackUrl=${cb}`);
+        return;
+      }
+
+      const data = await resp.json();
+      if (!resp.ok || !data?.url) throw new Error(data?.error || "Checkout failed");
+      window.location.href = data.url; // Stripe Hosted Checkout
+    } catch (e: any) {
+      alert(e.message || "Failed to start checkout");
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
   const plans = [
     {
       name: "Starter",
@@ -81,73 +121,80 @@ const PricingSection = () => {
             </span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Subscribe for access, tools, priority—and buy leads on demand. No free leads; pay‑per‑lead with plan‑based discounts.
+            Subscribe for access, tools, priority—and buy leads on demand. No free leads; pay-per-lead with plan-based discounts.
           </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {plans.map((plan, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.2 }}
-              transition={{ delay: index * 0.15, duration: 0.5, ease: "easeOut" }}
-              whileHover={{ scale: 1.05 }}
-              className={`relative p-8 rounded-2xl border backdrop-blur-sm transition-all duration-300 ${
-                plan.popular
-                  ? "gradient-card border-primary/50 shadow-lg"
-                  : "gradient-card border-white/20"
-              }`}
-            >
-              {plan.popular && (
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  whileInView={{ scale: 1, opacity: 1 }}
-                  animate={{ scale: [1, 1.05, 1], opacity: [1, 0.9, 1] }}
-                  transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                >
-                  <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 gradient-primary text-primary-foreground">
-                    Most Popular
-                  </Badge>
-                </motion.div>
-              )}
+          {plans.map((plan, index) => {
+            const key = toPlanKey(plan.name);
+            const isLoading = loadingPlan === key;
 
-              <div className="text-center mb-8">
-                <div className="flex items-center justify-center gap-2 mb-4">
-                  {plan.icon}
-                  <h3 className="text-2xl font-bold">{plan.name}</h3>
-                </div>
-                <div className="mb-4">
-                  <span className="text-4xl font-bold">{plan.price}</span>
-                  <span className="text-muted-foreground">/{plan.period}</span>
-                </div>
-                <p className="text-muted-foreground">{plan.description}</p>
-              </div>
-
-              <ul className="space-y-4 mb-8">
-                {plan.features.map((feature, featureIndex) => (
-                  <motion.li
-                    key={featureIndex}
-                    className="flex items-center gap-3"
-                    whileHover={{ scale: 1.02, x: 4 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  >
-                    <Check className="w-5 h-5 text-primary flex-shrink-0" />
-                    <span className="text-sm">{feature}</span>
-                  </motion.li>
-                ))}
-              </ul>
-
-              <Button
-                variant={plan.popular ? "default" : "outline"}
-                className={`w-full ${plan.popular ? "bg-primary text-white hover:brightness-110" : ""}`}
-                size="lg"
+            return (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ delay: index * 0.15, duration: 0.5, ease: "easeOut" }}
+                whileHover={{ scale: 1.05 }}
+                className={`relative p-8 rounded-2xl border backdrop-blur-sm transition-all duration-300 ${
+                  plan.popular
+                    ? "gradient-card border-primary/50 shadow-lg"
+                    : "gradient-card border-white/20"
+                }`}
               >
-                {plan.popular ? "Get Started" : "Choose Plan"}
-              </Button>
-            </motion.div>
-          ))}
+                {plan.popular && (
+                  <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    whileInView={{ scale: 1, opacity: 1 }}
+                    animate={{ scale: [1, 1.05, 1], opacity: [1, 0.9, 1] }}
+                    transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+                  >
+                    <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 gradient-primary text-primary-foreground">
+                      Most Popular
+                    </Badge>
+                  </motion.div>
+                )}
+
+                <div className="text-center mb-8">
+                  <div className="flex items-center justify-center gap-2 mb-4">
+                    {plan.icon}
+                    <h3 className="text-2xl font-bold">{plan.name}</h3>
+                  </div>
+                  <div className="mb-4">
+                    <span className="text-4xl font-bold">{plan.price}</span>
+                    <span className="text-muted-foreground">/{plan.period}</span>
+                  </div>
+                  <p className="text-muted-foreground">{plan.description}</p>
+                </div>
+
+                <ul className="space-y-4 mb-8">
+                  {plan.features.map((feature, featureIndex) => (
+                    <motion.li
+                      key={featureIndex}
+                      className="flex items-center gap-3"
+                      whileHover={{ scale: 1.02, x: 4 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    >
+                      <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                      <span className="text-sm">{feature}</span>
+                    </motion.li>
+                  ))}
+                </ul>
+
+                <Button
+                  variant={plan.popular ? "default" : "outline"}
+                  className={`w-full ${plan.popular ? "bg-primary text-white hover:brightness-110" : ""}`}
+                  size="lg"
+                  disabled={isLoading}
+                  onClick={() => startCheckout(key)}
+                >
+                  {isLoading ? "Redirecting…" : plan.popular ? "Get Started" : "Choose Plan"}
+                </Button>
+              </motion.div>
+            );
+          })}
         </div>
 
         <motion.div
@@ -160,7 +207,7 @@ const PricingSection = () => {
           <p className="text-muted-foreground mb-4">
             All plans include dashboard access and refunds on invalid/unreachable leads.
           </p>
-          <Button variant="ghost" className="text-primary hover:text-primary/80">
+          <Button variant="ghost" className="text-primary hover:text-primary/80" onClick={() => router.push("/pricing")}>
             Compare Plans →
           </Button>
         </motion.div>
@@ -174,7 +221,7 @@ const PricingSection = () => {
         >
           <div className="text-muted-foreground mb-4 text-sm">
             <div className="flex items-center gap-2 px-3 py-2">
-              <Verified className="w-4 h-4 text-primary" /> Risk‑Free: Refund if a lead is invalid or unreachable.
+              <Verified className="w-4 h-4 text-primary" /> Risk-Free: Refund if a lead is invalid or unreachable.
             </div>
           </div>
           <div className="flex flex-wrap gap-4 justify-center text-xs text-muted-foreground">

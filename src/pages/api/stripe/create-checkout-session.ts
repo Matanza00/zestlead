@@ -3,6 +3,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
 });
@@ -49,10 +50,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const tier = normalizePlanKey(sub?.tierName);
     const delayMs = requiredDelayMsForTier(tier);
 
-    // 2) Load the leads we’re checking out
+
+    // 2) Load the leads we’re checking out (need price/propertyType/isAvailable)
     const leads = await prisma.lead.findMany({
-      where: { id: { in: leadIds } },
-      select: { id: true, name: true, createdAt: true },
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        price: true,
+        propertyType: true,
+        isAvailable: true,
+      },
     });
 
     // 3) Compute eligibility per lead
@@ -167,7 +176,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success_url: `${req.headers.origin}/stripe/payment-success`,
       cancel_url: `${req.headers.origin}/stripe/payment-cancelled`,
     });
-
     return res.status(200).json({ id: session.id });
   } catch (err: any) {
     console.error('🛑 Checkout Error:', err);
