@@ -4,9 +4,7 @@ import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16',
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 // ---- Buy-delay helpers ----
 type PlanKey = 'STARTER' | 'GROWTH' | 'PRO';
 function normalizePlanKey(name?: string | null): PlanKey {

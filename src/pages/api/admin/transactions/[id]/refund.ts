@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
 import { NextApiRequest, NextApiResponse } from "next";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2023-10-16" });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });

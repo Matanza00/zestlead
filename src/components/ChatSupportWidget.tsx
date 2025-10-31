@@ -8,6 +8,8 @@ type ChatMessage = {
   sender: 'USER' | 'ADMIN';
   message: string;
   createdAt: string;
+  userId?: string; // ✅ Added this field
+   seen?: boolean;        // ✅ add this
 };
 
 export default function ChatSupportWidget() {
@@ -24,38 +26,38 @@ export default function ChatSupportWidget() {
   }, [messages]);
 
   // ✅ Set up socket listener once
-useEffect(() => {
-  if (!socket) return; // returning undefined is fine
+  useEffect(() => {
+    if (!socket) return; // returning undefined is fine
 
-  const handleMessage = (msg: ChatMessage) => {
-    setMessages((prev) => [...prev, msg]);
+    const handleMessage = (msg: ChatMessage) => {
+      setMessages((prev) => [...prev, msg]);
 
-    // 👁️ Mark admin messages as seen immediately if widget is open
-    if (msg.sender === "ADMIN" && isOpen) {
-      fetch("/api/user/support-chat/seen", {
-        method: "POST",
-        body: JSON.stringify({ ids: [msg.id] }),
-        headers: { "Content-Type": "application/json" },
-      })
-        .then(() => {
-          socket.emit("message-seen", {
-            messageId: msg.id,
-            userId: msg.userId,
-          });
+      // 👁️ Mark admin messages as seen immediately if widget is open
+      if (msg.sender === "ADMIN" && isOpen) {
+        fetch("/api/user/support-chat/seen", {
+          method: "POST",
+          body: JSON.stringify({ ids: [msg.id] }),
+          headers: { "Content-Type": "application/json" },
         })
-        .catch(console.error);
-    }
-  };
+          .then(() => {
+            socket.emit("message-seen", {
+              messageId: msg.id,
+              userId: msg.userId,
+            });
+          })
+          .catch(console.error);
+      }
+    };
 
-  socket.on("support-message", handleMessage);
+    socket.on("support-message", handleMessage);
 
-  // ⬇️ Cleanup must return void — wrap in braces
-  return () => {
-    socket.off("support-message", handleMessage);
-    // (optional) if this component owns the socket:
-    // socket.disconnect();
-  };
-}, [socket, isOpen]);
+    // ⬇️ Cleanup must return void — wrap in braces
+    return () => {
+      socket.off("support-message", handleMessage);
+      // (optional) if this component owns the socket:
+      // socket.disconnect();
+    };
+  }, [socket, isOpen]);
 
 
 
@@ -64,25 +66,25 @@ useEffect(() => {
   if (isOpen) {
     fetch('/api/socket'); // Wake socket
     fetch('/api/user/support-chat')
-      .then((res) => res.json())
-      .then((msgs) => {
-        setMessages(msgs);
+    .then((res) => res.json())
+    .then((msgs: ChatMessage[]) => {            // ✅ type msgs
+      setMessages(msgs);
 
-        // Mark all unseen ADMIN messages as seen
-        const unseenIds = msgs
-          .filter(m => m.sender === 'ADMIN' && !m.seen)
-          .map(m => m.id);
+      const unseenIds = msgs
+        .filter((m: ChatMessage) => m.sender === 'ADMIN' && !m.seen)  // ✅ typed m
+        .map((m: ChatMessage) => m.id);
 
-        if (unseenIds.length) {
-          fetch('/api/user/support-chat/seen', {
-            method: 'POST',
-            body: JSON.stringify({ ids: unseenIds }),
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      if (unseenIds.length) {
+        fetch('/api/user/support-chat/seen', {
+          method: 'POST',
+          body: JSON.stringify({ ids: unseenIds }),
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    })
+    .catch(console.error)
+    .finally(() => setLoading(false));
+
   }
 }, [isOpen]);
 

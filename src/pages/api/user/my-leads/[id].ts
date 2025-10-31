@@ -36,12 +36,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Normalize & validate status (if provided)
       const allowed = new Set(['CONTACTED', 'NOT_CONTACTED', 'NO_RESPONSE', 'CLOSED']);
-      let normalizedStatus: string | undefined = undefined;
+      let normalizedStatus: 'CONTACTED' | 'NOT_CONTACTED' | 'NO_RESPONSE' | 'CLOSED' | undefined = undefined;
       if (typeof status === 'string' && status.trim()) {
-        normalizedStatus = status.toString().trim().toUpperCase().replace(/\s+/g, '_');
-        if (!allowed.has(normalizedStatus)) {
+        const tempStatus = status.toString().trim().toUpperCase().replace(/\s+/g, '_');
+        if (!allowed.has(tempStatus)) {
           return res.status(400).json({ error: 'Invalid status' });
         }
+        normalizedStatus = tempStatus as 'CONTACTED' | 'NOT_CONTACTED' | 'NO_RESPONSE' | 'CLOSED';
       }
 
       // Find the user's purchase by purchaseId or leadId

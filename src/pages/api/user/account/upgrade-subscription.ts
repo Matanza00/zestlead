@@ -5,9 +5,7 @@ import { authOptions } from '@/lib/auth';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16',
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 // Match to tiers used in webhook
 const PLAN_PRICES: Record<string, { priceId: string; tierName: string }> = {

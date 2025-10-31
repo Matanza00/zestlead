@@ -2,9 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const Stripe = require('stripe');
 
 const prisma = new PrismaClient();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2023-10-16',
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 async function main() {
   const users = await prisma.user.findMany({

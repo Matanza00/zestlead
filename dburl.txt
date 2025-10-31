@@ -1,0 +1,1 @@
+mysql://appuser:YourStrongPassword@localhost:3306/zestleads?socket=/cloudsql/zestleads:us-central1:zestleads-mysql

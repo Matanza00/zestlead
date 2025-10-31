@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Socket, io } from 'socket.io-client';
 import { SocketContext } from '@/contexts/SocketContext';
 
-export default function App({ Component, pageProps }) {
+export default function App({ Component, pageProps }: AppProps) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const bootedRef = useRef(false);
 
