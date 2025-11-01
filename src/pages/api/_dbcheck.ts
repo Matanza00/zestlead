@@ -2,7 +2,7 @@
 // or app/api/_dbcheck/route.ts for App Router (adjust syntax accordingly)
 import { prisma } from "@/lib/prisma";
 
-export default async function handler(req, res) {
+export default async function handler(req:any, res:any) {
   try {
     // Minimal query that hits both pgBouncer and DB
     const [now] = await prisma.$queryRawUnsafe<{ now: Date }[]>("select now()");
