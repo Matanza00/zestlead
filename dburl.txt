@@ -1,1 +1,1 @@
-mysql://appuser:YourStrongPassword@localhost:3306/zestleads?socket=/cloudsql/zestleads:us-central1:zestleads-mysql
+postgresql://postgres.ryqgbyzdmciodvtkukdk:Levis250..@aws-1-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require

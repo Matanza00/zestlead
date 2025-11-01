@@ -1,0 +1,62 @@
+LOAD DATABASE
+     FROM mysql://root:@host.docker.internal:3306/zestleads_v1_db
+     INTO postgresql://postgres.ryqgbyzdmciodvtkukdk:Levis250..@aws-1-us-east-1.pooler.supabase.com:5432/postgres?sslmode=disable
+
+WITH
+     create no tables,
+     create no indexes,
+     reset sequences,
+     data only,
+     include no drop,
+     truncate,
+     batch rows = 1000,
+     prefetch rows = 1000
+
+SET
+     maintenance_work_mem to '512MB',
+     work_mem to '128MB',
+     search_path to 'public'
+
+INCLUDING ONLY TABLE NAMES MATCHING
+     'account',
+     'activity',
+     'assignedlead',
+     'auditlog',
+     'blogpost',
+     'cartitem',
+     'crmconnection',
+     'discount',
+     'lead',
+     'leadpurchase',
+     'leadtag',
+     'loginlog',
+     'notification',
+     'referral',
+     'session',
+     'subscription',
+     'supportchat',
+     'supportmessage',
+     'supportticket',
+     'twofactorauth',
+     'user',
+     'verificationtoken',
+     'wishlist'
+
+CAST
+     type datetime to timestamp drop default using zero-dates-to-null,
+     type date     to date     drop default using zero-dates-to-null,
+     type tinyint  to boolean  using tinyint-to-boolean
+
+-- 🧩 Separate rename block (outside CAST!)
+ALTER TABLE NAMES MATCHING 'lead'                 RENAME COLUMN 'leadtype'        TO 'leadType';
+ALTER TABLE NAMES MATCHING 'supportchat'          RENAME COLUMN 'userid'          TO 'userId';
+ALTER TABLE NAMES MATCHING 'supportchat'          RENAME COLUMN 'createdat'       TO 'createdAt';
+ALTER TABLE NAMES MATCHING 'user'                 RENAME COLUMN 'stripecustomerid' TO 'stripeCustomerId';
+ALTER TABLE NAMES MATCHING 'user'                 RENAME COLUMN 'referralcode'     TO 'referralCode';
+ALTER TABLE NAMES MATCHING 'user'                 RENAME COLUMN 'referredbyid'     TO 'referredById';
+ALTER TABLE NAMES MATCHING 'user'                 RENAME COLUMN 'freeleadcredits'  TO 'freeLeadCredits';
+ALTER TABLE NAMES MATCHING 'wishlist'             RENAME COLUMN 'userid'           TO 'userId';
+ALTER TABLE NAMES MATCHING 'wishlist'             RENAME COLUMN 'leadid'           TO 'leadId';
+ALTER TABLE NAMES MATCHING 'wishlist'             RENAME COLUMN 'createdat'        TO 'createdAt';
+
+ALTER SCHEMA 'zestleads_v1_db' RENAME TO 'public';
