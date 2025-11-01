@@ -51,7 +51,24 @@ export const authOptions: AuthOptions = {
 
     }),
   ],
+  
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      // Allow relative URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+
+      // Allow whitelisted absolute URLs
+      const allowed = [
+        baseUrl,                                      // resolves from NEXTAUTH_URL
+        "https://zestlead.onrender.com",              // Render subdomain
+        "https://www.zestlead.com",                   // (add your custom domain later)
+        "https://zestlead.com",
+      ];
+      if (allowed.some(a => url.startsWith(a))) return url;
+
+      // Fallback after login
+      return `${baseUrl}/user`;
+    },
     async signIn({ user, account }: { user: NextAuthUser; account: Account | null }) {
       // If Google account, check if user already exists
       if (account?.provider === "google") {
